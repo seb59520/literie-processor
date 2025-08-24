@@ -1,4 +1,4 @@
- name: Build Windows Executable
+name: Build Windows Executable
 
   on:
     workflow_dispatch:
@@ -30,8 +30,7 @@
           pip install psutil
 
       - name: Build executable
-        run: |
-          python build_windows.py
+        run: python build_windows.py
 
       - name: Upload executable
         uses: actions/upload-artifact@v3
