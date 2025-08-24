@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload PDF - Extraction & Analyse LLM</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 2em; 
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 2em;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .upload-form {
+            background: #f8f9fa;
+            padding: 2em 2.5em;
+            border-radius: 12px;
+            margin-bottom: 2em;
+            border: 1px solid #e3e6ea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .upload-form h2 {
+            margin-top: 0;
+            margin-bottom: 1.5em;
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #1a237e;
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+        .upload-form .form-group {
+            margin-bottom: 1em;
+        }
+        .upload-form input[type="file"] {
+            padding: 0.7em;
+            border: 1px solid #b0bec5;
+            border-radius: 6px;
+            width: 100%;
+            background: #fff;
+            font-size: 1em;
+        }
+        .upload-form label {
+            font-size: 1.05em;
+            color: #333;
+            cursor: pointer;
+        }
+        .upload-form input[type="checkbox"],
+        .upload-form input[type="radio"] {
+            accent-color: #1976d2;
+            transform: scale(1.15);
+        }
+        .upload-form .btn-upload {
+            background: linear-gradient(90deg, #1976d2 60%, #42a5f5 100%);
+            color: white;
+            padding: 0.9em 2.2em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+            transition: background 0.2s;
+        }
+        .upload-form .btn-upload:hover {
+            background: linear-gradient(90deg, #1565c0 60%, #1976d2 100%);
+        }
+        .error { 
+            color: #dc3545; 
+            background: #f8d7da;
+            padding: 1em;
+            border-radius: 4px;
+            margin: 1em 0;
+            border: 1px solid #f5c6cb;
+        }
+        .step {
+            margin: 1.5em 0;
+            padding: 1.5em;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        .step h3 {
+            margin: 0 0 1em 0;
+            color: #007bff;
+            display: flex;
+            align-items: center;
+        }
+        .step-icon {
+            margin-right: 0.5em;
+            font-size: 1.2em;
+        }
+        .step.extraction { 
+            border-left-color: #28a745; 
+        }
+        .step.extraction h3 { 
+            color: #28a745; 
+        }
+        .step.llm { 
+            border-left-color: #ffc107; 
+        }
+        .step.llm h3 { 
+            color: #ffc107; 
+        }
+        .step.result { 
+            border-left-color: #6f42c1; 
+        }
+        .step.result h3 { 
+            color: #6f42c1; 
+        }
+        
+        .result-data {
+            background: #ffffff; 
+            padding: 1.5em; 
+            border-radius: 5px; 
+            overflow-x: auto; 
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid #dee2e6;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1em;
+            margin: 1em 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 1em;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1em 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #ffc107, #6f42c1);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 Analyse de Devis PDF</h1>
+        
+        <div class="upload-form">
+            <h2><span style="font-size:1.3em;">📤</span> <span style="vertical-align:middle;">Upload du fichier</span></h2>
+            <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+                <div class="form-group">
+                    <input type="file" name="file" accept="application/pdf" required multiple id="fileInput">
+                </div>
+                <div id="commandeClientFields"></div>
+                <div class="form-group" style="margin-top:1em;">
+                    <label>
+                        <input type="checkbox" name="enrich_llm" value="yes">
+                        <span style="margin-left:0.5em;">🤖 Enrichir avec LLM</span>
+                    </label>
+                </div>
+                <div class="form-group" style="margin-top:1em;">
+                    <label style="margin-right:1.5em;">
+                        <input type="radio" name="llm_provider" value="ollama" checked onchange="toggleApiKey()">
+                        <span style="margin-left:0.5em;">Ollama <span style="color:#888;font-size:0.9em;">(local)</span></span>
+                    </label>
+                    <label>
+                        <input type="radio" name="llm_provider" value="openrouter" onchange="toggleApiKey()">
+                        <span style="margin-left:0.5em;">OpenRouter <span style="color:#888;font-size:0.9em;">(cloud)</span></span>
+                    </label>
+                </div>
+                <div class="form-group" style="margin-top:1em;">
+                    <label for="semaine_prod">Semaine de production :</label>
+                    <input type="number" min="1" max="53" name="semaine_prod" id="semaine_prod" required style="width:80px; margin-left:0.5em;">
+                    <label for="annee_prod" style="margin-left:1.5em;">Année :</label>
+                    <input type="number" name="annee_prod" id="annee_prod" value="{{ current_year }}" required style="width:100px; margin-left:0.5em;">
+                </div>
+                <div id="apiKeyDiv" style="display:none; margin-top:1em;">
+                    <label>Clé API OpenRouter :
+                        <input type="text" name="openrouter_api_key" style="width:300px; margin-left:0.5em;">
+                    </label>
+                </div>
+                <div class="form-group" style="margin-top:2em;">
+                    <button type="submit" class="btn-upload">🚀 Analyser le devis</button>
+                </div>
+            </form>
+        </div>
+        <script>
+        function toggleApiKey() {
+            var openrouterRadio = document.querySelector('input[name="llm_provider"][value="openrouter"]');
+            var apiKeyDiv = document.getElementById('apiKeyDiv');
+            if (openrouterRadio.checked) {
+                apiKeyDiv.style.display = 'block';
+            } else {
+                apiKeyDiv.style.display = 'none';
+            }
+        }
+        // Initialisation au chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleApiKey();
+            var radios = document.querySelectorAll('input[name="llm_provider"]');
+            radios.forEach(function(radio) {
+                radio.addEventListener('change', toggleApiKey);
+            });
+        });
+
+        // Génère un champ Commande/Client pour chaque fichier sélectionné
+        const fileInput = document.getElementById('fileInput');
+        const commandeClientFields = document.getElementById('commandeClientFields');
+        fileInput.addEventListener('change', function() {
+            commandeClientFields.innerHTML = '';
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const file = fileInput.files[i];
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.style.marginTop = '1em';
+                div.innerHTML = `<label>Commande/Client pour <strong>${file.name}</strong> :</label>
+                    <input type="text" name="commande_client" placeholder="Ex : YVOZ" style="width:250px; margin-left:0.5em;">`;
+                commandeClientFields.appendChild(div);
+            }
+        });
+        </script>
+
+        {% if error %}
+            <div class="error">
+                <strong>❌ Erreur :</strong> {{ error }}
+            </div>
+        {% endif %}
+
+        {% if results %}
+            <div style="color:#1976d2; font-weight:bold; margin-bottom:1em;">{{ results|length }} fichier(s) traité(s)</div>
+            <pre style="background:#f3f6fa; color:#333; border:1px solid #b0bec5; border-radius:6px; padding:1em; max-height:300px; overflow:auto;">{{ results|tojson(indent=2) }}</pre>
+            {% for result in results %}
+                <div class="step result">
+                    <h3><span class="step-icon">📄</span> Résultat pour : <span style="color:#1976d2">{{ result.filename }}</span></h3>
+                    <p><strong>Statut :</strong> ✅ Terminé</p>
+                    <div style="margin-bottom:1em;">
+                        {% if result.contient_dosseret_ou_tete %}
+                            <span style="color:#28a745; font-weight:bold; font-size:1.1em;">✔️ Contient un article DOSSERET ou TETE</span>
+                        {% else %}
+                            <span style="color:#dc3545; font-weight:bold; font-size:1.1em;">❌ Aucun article DOSSERET ou TETE</span>
+                        {% endif %}
+                    </div>
+                    <div style="margin-bottom:1em;">
+                        <strong>Mots opération trouvés :</strong>
+                        {% if result.mots_operation_trouves and result.mots_operation_trouves|length > 0 %}
+                            <span style="color:#1976d2; font-weight:bold;">{{ result.mots_operation_trouves|join(', ') }}</span>
+                        {% else %}
+                            <span style="color:#888;">Aucun</span>
+                        {% endif %}
+                    </div>
+                    <div style="margin-bottom:1em;">
+                        <strong>Noyaux de matelas détectés :</strong>
+                        {% if result.noyaux_matelas and result.noyaux_matelas|length > 0 %}
+                            <span style="color:#e91e63; font-weight:bold;">{{ result.noyaux_matelas|join(', ') }}</span>
+                        {% else %}
+                            <span style="color:#888;">Aucun</span>
+                        {% endif %}
+                    </div>
+                    {% if result.donnees_client and (result.donnees_client.nom or result.donnees_client.adresse or result.donnees_client.code_client) %}
+                    <div style="margin-bottom:1em; background:#f8f9fa; padding:1em; border-radius:6px; border-left:3px solid #28a745;">
+                        <h4 style="color:#28a745; margin:0 0 0.5em 0;">👤 Données Client Extraites</h4>
+                        <ul style="font-size:1.08em; margin:0;">
+                            {% if result.donnees_client.nom %}
+                            <li><strong>Nom :</strong> <span style="color:#1976d2;">{{ result.donnees_client.nom }}</span></li>
+                            {% endif %}
+                            {% if result.donnees_client.titre %}
+                            <li><strong>Titre (Mr/Mme) :</strong> <span style="color:#1976d2;">{{ result.donnees_client.titre }}</span></li>
+                            {% endif %}
+                            {% if result.donnees_client.adresse %}
+                            <li><strong>Ville :</strong> <span style="color:#1976d2;">{{ result.donnees_client.adresse }}</span></li>
+                            {% endif %}
+                            {% if result.donnees_client.code_client %}
+                            <li><strong>Code Client :</strong> <span style="color:#1976d2;">{{ result.donnees_client.code_client }}</span></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% if result.pre_import and result.pre_import|length > 0 %}
+                    <div style="margin-bottom:1em; background:#fff3cd; padding:1em; border-radius:6px; border-left:3px solid #ffc107;">
+                        <h4 style="color:#856404; margin:0 0 0.5em 0;">📋 Pré-Import Excel ({{ result.pre_import|length }} élément(s))</h4>
+                        <div style="font-size:0.9em;">
+                            {% for item in result.pre_import %}
+                            <div style="background:#fff; padding:0.5em; margin:0.5em 0; border-radius:4px; border:1px solid #ffeaa7;">
+                                <strong>Matelas #{{ item.matelas_index }} - {{ item.noyau }}</strong>
+                                <ul style="margin:0.5em 0 0 0; padding-left:1.5em;">
+                                    <li><strong>Client_D1:</strong> <span style="color:#1976d2;">{{ item.Client_D1 }}</span></li>
+                                    <li><strong>Adresse_D3:</strong> <span style="color:#1976d2;">{{ item.Adresse_D3 }}</span></li>
+                                    <li><strong>MrMME_D4:</strong> <span style="color:#1976d2;">{{ item.MrMME_D4 }}</span></li>
+                                    <li><strong>numero_D2:</strong> <span style="color:#1976d2;">{{ item.numero_D2 }}</span></li>
+                                    <li><strong>semaine_D5:</strong> <span style="color:#1976d2;">{{ item.semaine_D5 }}</span></li>
+                                    <li><strong>lundi_D6:</strong> <span style="color:#1976d2;">{{ item.lundi_D6 }}</span></li>
+                                    <li><strong>vendredi_D7:</strong> <span style="color:#1976d2;">{{ item.vendredi_D7 }}</span></li>
+                                    <li><strong>Hauteur_D22:</strong> <span style="color:#1976d2;">{{ item.Hauteur_D22 }}</span></li>
+                                    <li><strong>dosseret_tete_C8:</strong> <span style="color:#1976d2;">{{ item.dosseret_tete_C8 }}</span></li>
+                                    <li><strong>jumeaux_C10:</strong> <span style="color:#1976d2;">{{ item.jumeaux_C10 }}</span></li>
+                                    <li><strong>jumeaux_D10:</strong> <span style="color:#1976d2;">{{ item.jumeaux_D10 }}</span></li>
+                                    <li><strong>1piece_C11:</strong> <span style="color:#1976d2;">{{ item['1piece_C11'] }}</span></li>
+                                    <li><strong>1piece_D11:</strong> <span style="color:#1976d2;">{{ item['1piece_D11'] }}</span></li>
+                                    <li><strong>HSimple_polyester_C13:</strong> <span style="color:#1976d2;">{{ item.HSimple_polyester_C13 }}</span></li>
+                                    <li><strong>HSimple_tencel_C14:</strong> <span style="color:#1976d2;">{{ item.HSimple_tencel_C14 }}</span></li>
+                                    <li><strong>HSimple_autre_C15:</strong> <span style="color:#1976d2;">{{ item.HSimple_autre_C15 }}</span></li>
+                                    <li><strong>Hmat_polyester_C17:</strong> <span style="color:#1976d2;">{{ item.Hmat_polyester_C17 }}</span></li>
+                                    <li><strong>Hmat_tencel_C18:</strong> <span style="color:#1976d2;">{{ item.Hmat_tencel_C18 }}</span></li>
+                                    <li><strong>Hmat_luxe3D_C19:</strong> <span style="color:#1976d2;">{{ item.Hmat_luxe3D_C19 }}</span></li>
+                                    <li><strong>poignees_C20:</strong> <span style="color:#1976d2;">{{ item.poignees_C20 }}</span></li>
+                                    <li><strong>dimension_housse_D23:</strong> <span style="color:#1976d2;">{{ item.dimension_housse_D23 }}</span></li>
+                                    <li><strong>longueur_D24:</strong> <span style="color:#1976d2;">{{ item.longueur_D24 }}</span></li>
+                                    <li><strong>decoupe_noyau_D25:</strong> <span style="color:#1976d2;">{{ item.decoupe_noyau_D25 }}</span></li>
+                                    <li><strong>LN_Ferme_C28:</strong> <span style="color:#1976d2;">{{ item.LN_Ferme_C28 }}</span></li>
+                                    <li><strong>LN_Medium_C29:</strong> <span style="color:#1976d2;">{{ item.LN_Medium_C29 }}</span></li>
+                                    <li><strong>LM7z_Ferme_C30:</strong> <span style="color:#1976d2;">{{ item.LM7z_Ferme_C30 }}</span></li>
+                                    <li><strong>LM7z_Medium_C31:</strong> <span style="color:#1976d2;">{{ item.LM7z_Medium_C31 }}</span></li>
+                                    <li><strong>LM3z_Ferme_C32:</strong> <span style="color:#1976d2;">{{ item.LM3z_Ferme_C32 }}</span></li>
+                                    <li><strong>LM3z_Medium_C33:</strong> <span style="color:#1976d2;">{{ item.LM3z_Medium_C33 }}</span></li>
+                                    <li><strong>MV_Ferme_C34:</strong> <span style="color:#1976d2;">{{ item.MV_Ferme_C34 }}</span></li>
+                                    <li><strong>MV_Medium_C35:</strong> <span style="color:#1976d2;">{{ item.MV_Medium_C35 }}</span></li>
+                                    <li><strong>MV_Confort_C36:</strong> <span style="color:#1976d2;">{{ item.MV_Confort_C36 }}</span></li>
+                                    <li><strong>MR_Ferme_C37:</strong> <span style="color:#1976d2;">{{ item.MR_Ferme_C37 }}</span></li>
+                                    <li><strong>MR_Medium_C38:</strong> <span style="color:#1976d2;">{{ item.MR_Medium_C38 }}</span></li>
+                                    <li><strong>MR_Confort_C39:</strong> <span style="color:#1976d2;">{{ item.MR_Confort_C39 }}</span></li>
+                                    <li><strong>SL43_Ferme_C40:</strong> <span style="color:#1976d2;">{{ item.SL43_Ferme_C40 }}</span></li>
+                                    <li><strong>SL43_Medium_C41:</strong> <span style="color:#1976d2;">{{ item.SL43_Medium_C41 }}</span></li>
+                                    <li><strong>Surmatelas_C45:</strong> <span style="color:#1976d2;">{{ item.Surmatelas_C45 }}</span></li>
+                                    <li><strong>emporte_client_C57:</strong> <span style="color:#1976d2;">{{ item.emporte_client_C57 }}</span></li>
+                                    <li><strong>fourgon_C58:</strong> <span style="color:#1976d2;">{{ item.fourgon_C58 }}</span></li>
+                                    <li><strong>transporteur_C59:</strong> <span style="color:#1976d2;">{{ item.transporteur_C59 }}</span></li>
+                                </ul>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if result.configurations_matelas and result.configurations_matelas|length > 0 %}
+                    <div class="step calculation" style="border-left:4px solid #17a2b8; background:#e3f6fb; margin-bottom:1em;">
+                        <h3 style="color:#17a2b8;"><span class="step-icon">📅</span> Configurations par Matelas</h3>
+                        {% for config in result.configurations_matelas %}
+                        <div style="background:#f8f9fa; padding:1em; margin:0.5em 0; border-radius:6px; border-left:3px solid #e91e63;">
+                            <h4 style="color:#e91e63; margin:0 0 0.5em 0;">Matelas #{{ config.matelas_index }} - {{ config.noyau }}</h4>
+                            <div style="background:#f0f0f0; padding:0.5em; border-radius:4px; margin-bottom:0.5em; font-size:0.9em;">
+                                <strong>Qté:</strong> {{ config.quantite }} | 
+                                <strong>Hauteur:</strong> {{ config.hauteur }}cm | 
+                                <strong>Fermeté:</strong> {{ config.fermete }} | 
+                                <strong>Housse:</strong> {{ config.housse }} | 
+                                <strong>Matière:</strong> {{ config.matiere_housse }} | 
+                                <strong>Poignées:</strong> {{ config.poignees }}
+                                {% if config.dimension_housse is defined %}
+                                <br><span style="color:#1976d2;"><strong>Dimension Housse :</strong> {{ config.dimension_housse }}</span>
+                                {% endif %}
+                                {% if config.dimension_housse_longueur is defined %}
+                                <br><span style="color:#1976d2;"><strong>Dimension Housse Longueur :</strong> {{ config.dimension_housse_longueur }}</span>
+                                {% endif %}
+                                {% if config.dimension_literie is defined %}
+                                | <strong>Dimension literie :</strong> {{ config.dimension_literie }}
+                                {% endif %}
+                                {% if config.decoupe_noyau is defined %}
+                                | <strong>Découpe noyau :</strong> {{ config.decoupe_noyau }}
+                                {% endif %}
+                            </div>
+                            <ul style="font-size:1.08em; margin:0;">
+                                <li><strong>Semaine/Année :</strong> {{ config.semaine_annee }}</li>
+                                <li><strong>Lundi :</strong> {{ config.lundi }}</li>
+                                <li><strong>Vendredi :</strong> {{ config.vendredi }}</li>
+                                <li><strong>Commande/Client :</strong> {{ config.commande_client }}</li>
+                            </ul>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif result.calcul_date %}
+                    <div class="step calculation" style="border-left:4px solid #17a2b8; background:#e3f6fb; margin-bottom:1em;">
+                        <h3 style="color:#17a2b8;"><span class="step-icon">📅</span> Calcul Date (Aucun matelas détecté)</h3>
+                        <ul style="font-size:1.08em;">
+                            <li><strong>Semaine/Année :</strong> {{ result.calcul_date.semaine_annee }}</li>
+                            <li><strong>Lundi :</strong> {{ result.calcul_date.lundi }}</li>
+                            <li><strong>Vendredi :</strong> {{ result.calcul_date.vendredi }}</li>
+                            <li><strong>Commande/Client :</strong> {{ result.calcul_date.commande_client }}</li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                    {% if result.extraction_stats %}
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-number">{{ result.extraction_stats.nb_mots or 0 }}</div>
+                            <div class="stat-label">Mots extraits</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">{{ result.extraction_stats.nb_caracteres or 0 }}</div>
+                            <div class="stat-label">Caractères extraits</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if result.texte_extrait %}
+                    <details>
+                        <summary>Texte extrait complet</summary>
+                        <div class="result-data">{{ result.texte_extrait }}</div>
+                    </details>
+                    {% endif %}
+                    {% if result.llm_result %}
+                    <details>
+                        <summary>Résultat de l'analyse LLM</summary>
+                        <div class="result-data">{{ result.llm_result }}</div>
+                    </details>
+                    {% endif %}
+                    {% if result.fermeture_liaison is defined %}
+                    <div style="margin-bottom:0.5em;">
+                        <strong>Fermeture de liaison :</strong>
+                        {% if result.fermeture_liaison %}
+                            <span style="color:green;font-size:1.2em;">&#10004;</span>
+                        {% else %}
+                            <span style="color:#c00;font-size:1.2em;">&#10008;</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% if result.surmatelas is defined %}
+                    <div style="margin-bottom:0.5em;">
+                        <strong>Surmatelas :</strong>
+                        {% if result.surmatelas %}
+                            <span style="color:green;font-size:1.2em;">&#10004;</span>
+                        {% else %}
+                            <span style="color:#c00;font-size:1.2em;">&#10008;</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+</html> 
