@@ -1,0 +1,10 @@
+{
+  "source_version": "3.0.0",
+  "target_version": "3.0.1",
+  "description": "Passage \u00e0 TRUE par d\u00e9faut l'option \"Utiliser l'enrichissement LLM\"\nPassage de la semaine en cours et de l'ann\u00e9e en cours pour les param\u00e8tres de production",
+  "created_at": "2025-07-16T11:42:19.991419",
+  "files": [
+    "version.py",
+    "app_gui.py"
+  ]
+}

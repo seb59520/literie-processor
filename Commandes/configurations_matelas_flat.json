@@ -1,0 +1,48 @@
+[
+  {
+    "commande_client": "111",
+    "lundi": "2025-03-17",
+    "semaine_annee": "11_2025",
+    "vendredi": "2025-03-21",
+    "decoupe_noyau": "179 x 199",
+    "dimension_housse": "2 x 191",
+    "dimension_housse_longueur": 5.5,
+    "dimension_literie": "180x200",
+    "dimensions": {
+      "hauteur": 22,
+      "largeur": 179,
+      "longueur": 198
+    },
+    "fermete": "FERME",
+    "hauteur": 9,
+    "housse": "MATELASSEE",
+    "matelas_index": 1,
+    "matiere_housse": "TENCEL LUXE 3D",
+    "noyau": "LATEX MIXTE 7 ZONES",
+    "poignees": "NON",
+    "quantite": 1
+  },
+  {
+    "commande_client": "222",
+    "lundi": "2025-03-17",
+    "semaine_annee": "11_2025",
+    "vendredi": "2025-03-21",
+    "decoupe_noyau": "159 x 199",
+    "dimension_housse": "2 x 177",
+    "dimension_housse_longueur": 8.5,
+    "dimension_literie": "160x200",
+    "dimensions": {
+      "hauteur": 20,
+      "largeur": 159,
+      "longueur": 198
+    },
+    "fermete": "FERME",
+    "hauteur": 9,
+    "housse": "MATELASSEE",
+    "matelas_index": 1,
+    "matiere_housse": "TENCEL",
+    "noyau": "LATEX MIXTE 7 ZONES",
+    "poignees": "OUI",
+    "quantite": 1
+  }
+]

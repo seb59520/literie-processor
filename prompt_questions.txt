@@ -1,0 +1,21 @@
+Analyse ce texte et réponds aux questions suivantes :
+
+TEXTE :
+{text}
+
+QUESTIONS :
+1. Quel est le nom du client dans ce texte ?
+2. Quelle est l'adresse du client dans ce texte ?
+3. Quel est le code client dans ce texte ?
+4. Quel est le numéro de commande dans ce texte ?
+5. Quelle est la date de commande dans ce texte ?
+6. Quel est le nom du commercial dans ce texte ?
+7. Quel est le montant total TTC dans ce texte ?
+8. Quel est le montant d'acompte dans ce texte ?
+
+RÈGLES :
+- Réponds UNIQUEMENT avec les informations présentes dans le texte
+- Si une information n'est pas dans le texte, réponds "Non trouvé"
+- Ne jamais inventer d'informations
+
+Réponds maintenant aux 8 questions ci-dessus. 

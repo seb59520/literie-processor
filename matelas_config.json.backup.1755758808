@@ -1,0 +1,22 @@
+{
+  "last_semaine": 34,
+  "last_annee": 2025,
+  "last_commande_client": "Test Client",
+  "openrouter_api_key": "sk-or-test123",
+  "noyau_order": [
+    "LATEX NATUREL",
+    "MOUSSE VISCO",
+    "LATEX MIXTE 7 ZONES",
+    "MOUSSE RAINUREE 7 ZONES",
+    "LATEX RENFORC\u00c9",
+    "SELECT 43"
+  ],
+  "current_llm_provider": "ollama",
+  "llm_api_key_openrouter": "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",
+  "llm_api_key_openai": "sk-test123456789",
+  "llm_api_key_anthropic": "sk-ant-test123456789",
+  "llm_api_key_gemini": "AIza-test123456789",
+  "llm_api_key_mistral": "mist-test123456789",
+  "excel_output_directory": "/Users/sebastien/Downloads",
+  "llm_model_ollama": "mistral:latest"
+}

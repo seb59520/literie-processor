@@ -1,0 +1,146 @@
+{
+  "societe": {
+    "nom": "SAS Literie Westelynck",
+    "capital": "23 100 Euros",
+    "adresse": "525 RD 642 - 59190 BORRE",
+    "telephone": "03.28.48.04.19",
+    "email": "contact@lwest.fr",
+    "siret": "429 352 891 00015",
+    "APE": "3103Z",
+    "CEE": "FR50 429 352 891",
+    "banque": "Crédit Agricole d'Hazebrouck",
+    "IBAN": "FR76 1670 6050 1650 4613 2602 341"
+  },
+  "client": {
+    "nom": "Mr et Me LAGADEC HELENE",
+    "adresse": "25 RUE DE L'ÉGLISE, 59670 BAVINCHOVE",
+    "code_client": "LAGAHEBAV"
+  },
+  "commande": {
+    "numero": "CM00009581",
+    "date": "19/07/2025",
+    "date_validite": "",
+    "commercial": "P. ALINE",
+    "origine": "COMMANDE"
+  },
+  "mode_mise_a_disposition": {
+    "emporte_client_C57": "ENLÈVEMENT PAR VOS SOINS",
+    "fourgon_C58": "",
+    "transporteur_C59": ""
+  },
+  "articles": [
+    {
+      "type": "sommier",
+      "description": "SOMMIERS JUMEAUX RELAXATION MOTORISÉE 5 PLIS PETITE TÊTIÈRE - 2X2 MOTEURS - TÉLÉCOMMANDES A FIL - DOUBLES LATTES (HÊTRE MULTIPLIS) - PAREMENTÉ 159/199/19",
+      "titre_cote": "",
+      "information": "LITERIE 160/200/59 CM JUMEAUX SUR PIEDS",
+      "quantite": 1,
+      "dimensions": "159x199x19",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {
+        "motorisation": "2x2 moteurs",
+        "télécommandes": "fils",
+        "structure": "Hêtre multiplis"
+      }
+    },
+    {
+      "type": "accessoire",
+      "description": "MÉTRAGE PVC SARANO CAMEL",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 4,
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {}
+    },
+    {
+      "type": "tête de lit",
+      "description": "DOSSERET GALBÉ COINS VIFS 160/90 BASE SOMMIERS",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "160x90",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {}
+    },
+    {
+      "type": "pieds",
+      "description": "JEU DE 4 PIEDS CYLINDRE VERNI NATUREL 20 CM + 2 PIEDS CENTRAUX + PATINS FEUTRES",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {
+        "hauteur": "20 cm"
+      }
+    },
+    {
+      "type": "remise",
+      "description": "REMISE 50% SOLDES MODÈLE D'EXPOSITION",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {
+        "montant": "-1295,00€"
+      }
+    },
+    {
+      "type": "matelas",
+      "description": "MATELAS JUMEAUX - MOUSSE RAINURÉE 7 ZONES DIFFÉRENCIÉES MÉDIUM (50KG/M3) - HOUSSE MATELASSÉE TENCEL AVEC POIGNÉES OREILLES LAVABLE À 40° 79/198/20",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 2,
+      "dimensions": "79x198x20",
+      "noyau": "MOUSSE RAINURÉE 7 ZONES",
+      "fermete": "MÉDIUM",
+      "housse": "MATELASSÉE",
+      "matiere_housse": "TENCEL",
+      "autres_caracteristiques": {
+        "poignées": "oui",
+        "lavable": "40°"
+      }
+    },
+    {
+      "type": "remise",
+      "description": "REMISE : 5% ENLÈVEMENT PAR VOS SOINS",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {
+        "montant": "-43,96€"
+      }
+    }
+  ],
+  "paiement": {
+    "conditions": "ACOMPTE DE 667 € EN CB LA COMMANDE ET SOLDE DE 1 500 € À L'ENLÈVEMENT",
+    "port_ht": 0.00,
+    "base_ht": 1774.21,
+    "taux_tva": 20.00,
+    "total_ttc": 2167.00,
+    "acompte": 667.00,
+    "net_a_payer": 1500.00
+  }
+} 

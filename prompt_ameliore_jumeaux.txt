@@ -1,0 +1,125 @@
+Tu es un assistant expert en extraction de données structurées à partir de documents PDF commerciaux.
+
+Analyse le texte suivant : 
+
+{text}
+
+⚠️ INSTRUCTIONS CRITIQUES POUR LES MATELAS :
+- Pour chaque matelas, tu dois extraire la description COMPLÈTE incluant TOUTES les informations (noyau, fermeté, housse, matière, poignées, caractéristiques spéciales...)
+- NE TRONQUE JAMAIS la description d'un matelas !
+- Si la description s'étend sur plusieurs lignes, combine-les en une seule description complète.
+- Exemple de description complète : "MATELAS 1 PIÈCE - MOUSSE RAINURÉE 7 ZONES DIFFÉRENCIÉES FERME (50KG/ M3) - HOUSSE MATELASSÉE TENCEL LUXE 3D AVEC POIGNÉES INTÉGRÉES DÉHOUSSABLE SUR 3 CÔTÉS ET LAVABLE A 40°"
+
+⚠️ INSTRUCTIONS CRITIQUES POUR LA DÉTECTION DES JUMEAUX :
+- Tu dois DÉTECTER et EXTRACTER TOUS les types de matelas (jumeaux vs 1 pièce)
+- Recherche spécifiquement les mots-clés suivants :
+  * "jumeaux", "MATELAS JUMEAUX", "2 PIÈCES", "DEUX PIÈCES"
+  * "1 PIÈCE", "UNE PIÈCE", "SIMPLE"
+- Si tu trouves "jumeaux" ou "2 PIÈCES" → marquer comme jumeaux
+- Si tu trouves "1 PIÈCE" ou rien de spécifique → marquer comme 1 pièce
+- IMPORTANT : La détection des jumeaux est CRUCIALE pour le calcul des dimensions housse !
+
+⚠️ INSTRUCTIONS CRITIQUES POUR LA LIVRAISON :
+- Tu dois DÉTECTER et EXTRACTER TOUS les modes de livraison mentionnés dans le document
+- Recherche spécifiquement les mots-clés suivants :
+  * "fourgon", "livraison par fourgon", "fourgon de l'entreprise"
+  * "enlèvement", "retrait", "enlèvement par vos soins"
+  * "transporteur", "livraison par transporteur"
+  * "livraison", "mode de livraison", "transport"
+- Si tu trouves des informations de livraison, remplis les champs appropriés
+- Si aucune information n'est trouvée, mets "Non spécifié" ou laisse vide
+
+⚠️ IMPORTANT : Tu dois répondre UNIQUEMENT avec du JSON valide, sans texte avant ou après.
+Extrais les informations sous forme de **JSON**.  
+Respecte exactement cette structure :
+
+{
+  "societe": {
+    "nom": "...",
+    "capital": "...",
+    "adresse": "...",
+    "telephone": "...",
+    "fax": "...",
+    "email": "...",
+    "siret": "...",
+    "APE": "...",
+    "CEE": "...",
+    "banque": "...",
+    "IBAN": "..."
+  },
+  "client": {
+    "nom": "...",
+    "adresse": "...",
+    "code_client": "..."
+  },
+  "commande": {
+    "numero": "...",
+    "date": "...",
+    "date_validite": "...",
+    "commercial": "...",
+    "origine": "..."
+  },
+  "mode_mise_a_disposition": {
+    "emporte_client_C57": "...",
+    "fourgon_C58": "...",
+    "transporteur_C59": "..."
+  },
+  "articles": [
+    {
+      "quantite": ...,
+      "description": "...",
+      "dimensions": "...",
+      "pu_ttc": ...,
+      "eco_part": ...,
+      "pu_ht": ...,
+      "type_matelas": "jumeaux" ou "1_piece",
+      "est_jumeaux": true ou false
+    }
+  ],
+  "paiement": {
+    "conditions": "...",
+    "port_ht": ...,
+    "base_ht": ...,
+    "taux_tva": ...,
+    "total_ttc": ...,
+    "acompte": ...,
+    "net_a_payer": ...
+  }
+}
+
+EXEMPLES DE DÉTECTION DE JUMEAUX :
+
+Exemple 1 - Matelas Jumeaux :
+"MATELAS JUMEAUX - MOUSSE RAINURÉE 7 ZONES DIFFÉRENCIÉES FERME (50KG/ M3) - HOUSSE MATELASSÉE TENCEL LUXE 3D AVEC POIGNÉES INTÉGRÉES DÉHOUSSABLE SUR 3 CÔTÉS ET LAVABLE A 40° 139/ 189/ 20"
+→ type_matelas: "jumeaux", est_jumeaux: true
+
+Exemple 2 - Matelas 1 Pièce :
+"MATELAS 1 PIÈCE - MOUSSE RAINURÉE 7 ZONES DIFFÉRENCIÉES FERME (50KG/ M3) - HOUSSE MATELASSÉE TENCEL LUXE 3D AVEC POIGNÉES INTÉGRÉES DÉHOUSSABLE SUR 3 CÔTÉS ET LAVABLE A 40° 139/ 189/ 20"
+→ type_matelas: "1_piece", est_jumeaux: false
+
+Exemple 3 - Matelas Simple (sans précision) :
+"MATELAS - MOUSSE RAINURÉE 7 ZONES DIFFÉRENCIÉES FERME (50KG/ M3) - HOUSSE MATELASSÉE TENCEL LUXE 3D AVEC POIGNÉES INTÉGRÉES DÉHOUSSABLE SUR 3 CÔTÉS ET LAVABLE A 40° 139/ 189/ 20"
+→ type_matelas: "1_piece", est_jumeaux: false
+
+EXEMPLES DE DÉTECTION DE LIVRAISON :
+
+Exemple 1 - Fourgon :
+"Livraison par fourgon de l'entreprise" → fourgon_C58: "Livraison par fourgon de l'entreprise"
+
+Exemple 2 - Enlèvement :
+"5% enlèvement par vos soins" → emporte_client_C57: "5% enlèvement par vos soins"
+
+Exemple 3 - Transporteur :
+"Livraison par transporteur" → transporteur_C59: "Livraison par transporteur"
+
+Exemple 4 - Aucune info :
+Si rien n'est mentionné → fourgon_C58: null
+
+⚠️ RÈGLES FINALES :
+1. Sois TRÈS ATTENTIF à la détection des jumeaux - c'est CRUCIAL pour les calculs !
+2. Sois TRÈS ATTENTIF aux informations de livraison et remplis TOUS les champs que tu peux identifier !
+3. Pour chaque ligne d'article, même si elle est similaire ou dupliquée, crée une entrée distincte dans le tableau "articles"
+4. N'invente aucune donnée manquante, laisse la valeur `null` si tu ne la trouves pas
+
+Réponds uniquement avec le JSON valide, sans explication ni phrase autour.
+

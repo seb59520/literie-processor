@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide d'Aide - Matelas Processor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #0078d4;
+            text-align: center;
+            border-bottom: 3px solid #0078d4;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #106ebe;
+            border-left: 4px solid #0078d4;
+            padding-left: 15px;
+            margin-top: 30px;
+        }
+        
+        h3 {
+            color: #333;
+            margin-top: 25px;
+        }
+        
+        .toc {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .toc h3 {
+            margin-top: 0;
+            color: #0078d4;
+        }
+        
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .toc li {
+            margin: 8px 0;
+        }
+        
+        .toc a {
+            color: #0078d4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        
+        .feature-list {
+            background-color: #e8f4fd;
+            border-left: 4px solid #0078d4;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .feature-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin: 5px 0;
+        }
+        
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #0078d4;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .step {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        .step-number {
+            background-color: #28a745;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .faq-item {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .faq-question {
+            font-weight: bold;
+            color: #0078d4;
+            margin-bottom: 10px;
+        }
+        
+        .faq-answer {
+            color: #666;
+        }
+        
+        .version-info {
+            background-color: #e8f4fd;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .contact-info {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .contact-info h3 {
+            color: #0078d4;
+            margin-top: 0;
+        }
+        
+        .contact-info ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .contact-info li {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .contact-info li:before {
+            content: "📧";
+            position: absolute;
+            left: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            h2 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛏️ Guide d'Aide Complet - Matelas Processor</h1>
+        
+        <div class="toc">
+            <h3>📋 Table des Matières</h3>
+            <ul>
+                <li><a href="#vue-densemble">1. Vue d'ensemble</a></li>
+                <li><a href="#installation">2. Installation</a></li>
+                <li><a href="#premiers-pas">3. Premiers pas</a></li>
+                <li><a href="#interface-utilisateur">4. Interface utilisateur</a></li>
+                <li><a href="#traitement-des-fichiers">5. Traitement des fichiers</a></li>
+                <li><a href="#fonctionnalites-avancees">6. Fonctionnalités avancées</a></li>
+                <li><a href="#resultats-et-export">7. Résultats et export</a></li>
+                <li><a href="#depannage">8. Dépannage</a></li>
+                <li><a href="#faq">9. FAQ</a></li>
+                <li><a href="#support-technique">10. Support technique</a></li>
+            </ul>
+        </div>
+
+        <h2 id="vue-densemble">🎯 Vue d'ensemble</h2>
+        
+        <h3>Qu'est-ce que Matelas Processor ?</h3>
+        <p>Matelas Processor est un outil automatisé de traitement de commandes de matelas qui :</p>
+        <ul>
+            <li><strong>Extrait automatiquement</strong> les données des devis PDF</li>
+            <li><strong>Analyse intelligemment</strong> le contenu avec l'IA (LLM)</li>
+            <li><strong>Calcule automatiquement</strong> les dimensions et configurations</li>
+            <li><strong>Génère des fichiers Excel</strong> prêts pour la production</li>
+            <li><strong>Gère les données clients</strong> et les informations de commande</li>
+        </ul>
+
+        <div class="feature-list">
+            <h3>Fonctionnalités principales</h3>
+            <ul>
+                <li>✅ <strong>Extraction PDF automatique</strong> - Lecture et analyse des devis PDF</li>
+                <li>✅ <strong>Intelligence artificielle</strong> - Analyse LLM pour extraction précise</li>
+                <li>✅ <strong>Calculs automatiques</strong> - Dimensions, housses, fermeté</li>
+                <li>✅ <strong>Gestion des clients</strong> - Extraction et traitement des données client</li>
+                <li>✅ <strong>Pré-import Excel</strong> - Formatage des données pour import</li>
+                <li>✅ <strong>Interface graphique</strong> - Interface moderne et intuitive</li>
+                <li>✅ <strong>Export Excel</strong> - Génération de fichiers de production</li>
+            </ul>
+        </div>
+
+        <h3>Types de matelas supportés</h3>
+        <ul>
+            <li><strong>Latex Mixte 7 Zones</strong> - Matelas latex avec zones de confort</li>
+            <li><strong>Latex Naturel</strong> - Matelas latex 100% naturel</li>
+            <li><strong>Latex Renforcé</strong> - Matelas latex avec renfort</li>
+            <li><strong>Mousse Viscoélastique</strong> - Matelas mousse mémoire</li>
+            <li><strong>Mousse Rainurée 7 Zones</strong> - Mousse avec zones de confort</li>
+            <li><strong>Select 43</strong> - Matelas spécialisé</li>
+        </ul>
+
+        <h2 id="installation">🚀 Installation</h2>
+
+        <h3>Option 1 : Installation simple (Recommandée)</h3>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Windows :</strong> Téléchargez le fichier ZIP de l'application
+        </div>
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Windows :</strong> Extrayez le contenu dans un dossier
+        </div>
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Windows :</strong> Double-cliquez sur <code>install_windows.bat</code>
+        </div>
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Windows :</strong> L'application se lance automatiquement
+        </div>
+
+        <div class="info">
+            <h4>macOS/Linux :</h4>
+            <ol>
+                <li>Téléchargez le fichier TAR.GZ de l'application</li>
+                <li>Extrayez le contenu : <code>tar -xzf MatelasProcessor_*.tar.gz</code></li>
+                <li>Ouvrez un terminal dans le dossier</li>
+                <li>Exécutez : <code>./install_unix.sh</code></li>
+            </ol>
+        </div>
+
+        <h3>Option 2 : Installation avec Python existant</h3>
+        <p>Si vous avez Python 3.8+ installé :</p>
+        <div class="code-block">
+# Installer les dépendances
+pip install -r requirements_gui.txt
+
+# Lancer l'application
+python run_gui.py
+        </div>
+
+        <h3>Vérification de l'installation</h3>
+        <p>Après installation, vous devriez voir :</p>
+        <ul>
+            <li>✅ Interface graphique qui se lance</li>
+            <li>✅ Message "Application prête" dans la console</li>
+            <li>✅ Aucune erreur de dépendances</li>
+        </ul>
+
+        <h2 id="premiers-pas">🎯 Premiers pas</h2>
+
+        <h3>1. Lancement de l'application</h3>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Interface graphique (Recommandée) :</strong> <code>python run_gui.py</code>
+        </div>
+
+        <h3>2. Configuration initiale</h3>
+        
+        <h4>Paramètres LLM</h4>
+        <ul>
+            <li><strong>Enrichissement LLM</strong> : Activé par défaut (recommandé)</li>
+            <li><strong>Provider</strong> : 
+                <ul>
+                    <li><code>Ollama</code> : LLM local (gratuit, plus lent)</li>
+                    <li><code>OpenRouter</code> : LLM cloud (payant, plus rapide)</li>
+                </ul>
+            </li>
+            <li><strong>Clé API</strong> : Requise uniquement pour OpenRouter</li>
+        </ul>
+
+        <h4>Paramètres de production</h4>
+        <ul>
+            <li><strong>Semaine</strong> : Semaine de production (ex: 25)</li>
+            <li><strong>Année</strong> : Année de production (ex: 2025)</li>
+            <li><strong>Commande client</strong> : Nom du client (ex: "LOUCHART")</li>
+        </ul>
+
+        <h3>3. Premier traitement</h3>
+        <div class="step">
+            <span class="step-number">1</span>
+            Sélectionnez un fichier PDF de devis
+        </div>
+        <div class="step">
+            <span class="step-number">2</span>
+            Configurez les paramètres (LLM, production, client)
+        </div>
+        <div class="step">
+            <span class="step-number">3</span>
+            Cliquez sur "Traiter les fichiers"
+        </div>
+        <div class="step">
+            <span class="step-number">4</span>
+            Consultez les résultats dans les onglets
+        </div>
+
+        <h2 id="interface-utilisateur">🖥️ Interface utilisateur</h2>
+
+        <h3>Panneau de configuration (Gauche)</h3>
+        
+        <h4>Section Fichiers</h4>
+        <ul>
+            <li><strong>Sélection PDF</strong> : Bouton pour choisir un ou plusieurs fichiers</li>
+            <li><strong>Liste des fichiers</strong> : Affichage des fichiers sélectionnés</li>
+            <li><strong>Suppression</strong> : Bouton pour retirer un fichier</li>
+        </ul>
+
+        <h4>Section LLM</h4>
+        <ul>
+            <li><strong>Enrichissement LLM</strong> : Case à cocher pour activer l'IA</li>
+            <li><strong>Provider</strong> : Menu déroulant Ollama/OpenRouter</li>
+            <li><strong>Clé API</strong> : Champ texte pour la clé OpenRouter</li>
+            <li><strong>Statut</strong> : Indicateur de connexion au LLM</li>
+        </ul>
+
+        <h4>Section Production</h4>
+        <ul>
+            <li><strong>Semaine</strong> : Champ numérique (1-53)</li>
+            <li><strong>Année</strong> : Champ numérique (2024+)</li>
+            <li><strong>Commande client</strong> : Champ texte libre</li>
+        </ul>
+
+        <h3>Panneau de résultats (Droite)</h3>
+        
+        <h4>Onglet Résumé</h4>
+        <ul>
+            <li><strong>Statistiques</strong> : Nombre de fichiers traités</li>
+            <li><strong>Temps de traitement</strong> : Durée totale</li>
+            <li><strong>Erreurs</strong> : Liste des problèmes rencontrés</li>
+            <li><strong>Succès</strong> : Nombre de traitements réussis</li>
+        </ul>
+
+        <h4>Onglet Configurations</h4>
+        <ul>
+            <li><strong>Tableau des matelas</strong> : Toutes les configurations détectées</li>
+            <li><strong>Colonnes</strong> : Type, dimensions, housse, fermeté, quantité</li>
+            <li><strong>Actions</strong> : Modifier, supprimer, dupliquer</li>
+        </ul>
+
+        <h4>Onglet Pré-import</h4>
+        <ul>
+            <li><strong>Données structurées</strong> : Format prêt pour Excel</li>
+            <li><strong>Mapping des champs</strong> : Client_D1, Adresse_D3, Hauteur_D22</li>
+            <li><strong>Validation</strong> : Vérification des données</li>
+        </ul>
+
+        <h4>Onglet JSON</h4>
+        <ul>
+            <li><strong>Données brutes</strong> : Format JSON complet</li>
+            <li><strong>Debug</strong> : Pour le développement</li>
+            <li><strong>Export</strong> : Copier/coller des données</li>
+        </ul>
+
+        <h3>Barre d'outils</h3>
+        <ul>
+            <li><strong>Traiter</strong> : Lancer le traitement des fichiers</li>
+            <li><strong>Arrêter</strong> : Interrompre le traitement en cours</li>
+            <li><strong>Exporter</strong> : Sauvegarder les résultats</li>
+            <li><strong>Aide</strong> : Ouvrir ce guide</li>
+            <li><strong>Paramètres</strong> : Configuration avancée</li>
+        </ul>
+
+        <h2 id="traitement-des-fichiers">📄 Traitement des fichiers</h2>
+
+        <h3>Types de fichiers supportés</h3>
+        
+        <h4>PDF de devis</h4>
+        <ul>
+            <li><strong>Format</strong> : PDF standard</li>
+            <li><strong>Contenu</strong> : Devis de matelas avec spécifications</li>
+            <li><strong>Taille</strong> : Jusqu'à 50MB par fichier</li>
+            <li><strong>Encodage</strong> : UTF-8 recommandé</li>
+        </ul>
+
+        <h4>Structure attendue</h4>
+        <p>Le PDF doit contenir :</p>
+        <ul>
+            <li>Informations client (nom, adresse)</li>
+            <li>Spécifications matelas (type, dimensions)</li>
+            <li>Quantités et options</li>
+            <li>Prix et conditions</li>
+        </ul>
+
+        <h3>Processus de traitement</h3>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Upload et validation</strong> - Vérification du format PDF
+        </div>
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Extraction du texte</strong> - Lecture du contenu PDF
+        </div>
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Analyse LLM</strong> - Envoi du texte au LLM
+        </div>
+        <div class="step">
+            <span class="step-number">4</span>
+            <strong>Traitement métier</strong> - Détection du type de matelas
+        </div>
+        <div class="step">
+            <span class="step-number">5</span>
+            <strong>Génération des résultats</strong> - Création des configurations
+        </div>
+
+        <h3>Gestion des erreurs</h3>
+        
+        <h4>Erreurs courantes</h4>
+        <ul>
+            <li><strong>Fichier corrompu</strong> : Vérifiez l'intégrité du PDF</li>
+            <li><strong>Format non reconnu</strong> : Assurez-vous que c'est un devis de matelas</li>
+            <li><strong>LLM indisponible</strong> : Vérifiez la connexion internet</li>
+            <li><strong>Données manquantes</strong> : Le PDF peut être incomplet</li>
+        </ul>
+
+        <h4>Solutions</h4>
+        <ul>
+            <li><strong>Relancez le traitement</strong> après correction</li>
+            <li><strong>Vérifiez les logs</strong> dans la console</li>
+            <li><strong>Contactez le support</strong> si le problème persiste</li>
+        </ul>
+
+        <h2 id="fonctionnalites-avancees">⚙️ Fonctionnalités avancées</h2>
+
+        <h3>Configuration LLM</h3>
+        
+        <h4>Ollama (Local)</h4>
+        <div class="code-block">
+# Installation
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Lancement
+ollama serve
+
+# Téléchargement du modèle
+ollama pull llama3
+        </div>
+
+        <h4>OpenRouter (Cloud)</h4>
+        <ol>
+            <li>Créez un compte sur <a href="https://openrouter.ai" target="_blank">openrouter.ai</a></li>
+            <li>Générez une clé API</li>
+            <li>Entrez la clé dans l'interface</li>
+            <li>Sélectionnez le modèle souhaité</li>
+        </ol>
+
+        <h3>Personnalisation des règles</h3>
+        
+        <h4>Fichiers de configuration</h4>
+        <ul>
+            <li><code>backend/Référentiels/</code> : Règles métier et référentiels</li>
+            <li><code>config.py</code> : Configuration générale</li>
+            <li><code>backend/*_utils.py</code> : Modules de traitement</li>
+        </ul>
+
+        <h4>Modification des règles</h4>
+        <div class="code-block">
+# Exemple : Ajouter un nouveau type de matelas
+# Dans backend/matelas_utils.py
+NOYAUX_SUPPORTES = [
+    "LATEX MIXTE 7 ZONES",
+    "LATEX NATUREL",
+    "NOUVEAU TYPE",  # Ajoutez ici
+]
+        </div>
+
+        <h3>Traitement par lot</h3>
+        
+        <h4>Fichiers multiples</h4>
+        <ol>
+            <li>Sélectionnez plusieurs fichiers PDF</li>
+            <li>Configurez les paramètres globaux</li>
+            <li>Lancez le traitement</li>
+            <li>Consultez les résultats par fichier</li>
+        </ol>
+
+        <h2 id="resultats-et-export">📊 Résultats et export</h2>
+
+        <h3>Types de résultats</h3>
+        
+        <h4>Configurations matelas</h4>
+        <div class="code-block">
+{
+  "matelas_index": 1,
+  "noyau": "LATEX MIXTE 7 ZONES",
+  "quantite": 1,
+  "hauteur": 20,
+  "fermete": "MÉDIUM",
+  "housse": "MATELASSÉE",
+  "dimensions": {"largeur": 89, "longueur": 198}
+}
+        </div>
+
+        <h4>Données client</h4>
+        <div class="code-block">
+{
+  "nom": "Mr LOUCHART FREDERIC",
+  "adresse": "HAZEBROUCK",
+  "code_client": "LOUCFSE"
+}
+        </div>
+
+        <h4>Pré-import Excel</h4>
+        <div class="code-block">
+{
+  "Client_D1": "Mr LOUCHART FREDERIC",
+  "Adresse_D3": "HAZEBROUCK",
+  "Hauteur_D22": 20
+}
+        </div>
+
+        <h3>Export Excel</h3>
+        
+        <h4>Génération automatique</h4>
+        <ul>
+            <li><strong>Template</strong> : Basé sur <code>template/template_matelas.xlsx</code></li>
+            <li><strong>Nommage</strong> : <code>Matelas_[CLIENT]_[DATE].xlsx</code></li>
+            <li><strong>Emplacement</strong> : Dossier <code>output/</code></li>
+        </ul>
+
+        <h4>Structure du fichier</h4>
+        <ul>
+            <li><strong>Onglet 1</strong> : Données client</li>
+            <li><strong>Onglet 2</strong> : Configurations matelas</li>
+            <li><strong>Onglet 3</strong> : Pré-import structuré</li>
+            <li><strong>Onglet 4</strong> : Métadonnées</li>
+        </ul>
+
+        <h2 id="depannage">🔧 Dépannage</h2>
+
+        <h3>Problèmes d'installation</h3>
+        
+        <div class="faq-item">
+            <div class="faq-question">Erreur "Python non trouvé"</div>
+            <div class="faq-answer">
+                <strong>Windows :</strong> Téléchargez Python depuis python.org<br>
+                <strong>macOS :</strong> <code>brew install python3</code><br>
+                <strong>Linux :</strong> <code>sudo apt-get install python3</code>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Erreur de dépendances</div>
+            <div class="faq-answer">
+                <div class="code-block">
+# Mise à jour de pip
+pip install --upgrade pip
+
+# Installation des dépendances
+pip install -r requirements_gui.txt
+
+# Vérification
+python -c "import PyQt6; print('OK')"
+                </div>
+            </div>
+        </div>
+
+        <h3>Problèmes de traitement</h3>
+        
+        <div class="faq-item">
+            <div class="faq-question">LLM non disponible</div>
+            <div class="faq-answer">
+                <strong>Ollama :</strong><br>
+                <code>ollama serve</code><br>
+                <code>ollama list</code> # Vérifier les modèles<br><br>
+                <strong>OpenRouter :</strong><br>
+                Vérifiez votre clé API et la connexion internet
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Fichier PDF non traité</div>
+            <div class="faq-answer">
+                <ul>
+                    <li><strong>Vérifiez le format</strong> : Doit être un PDF valide</li>
+                    <li><strong>Vérifiez la taille</strong> : Maximum 50MB</li>
+                    <li><strong>Vérifiez le contenu</strong> : Doit être un devis de matelas</li>
+                    <li><strong>Vérifiez l'encodage</strong> : UTF-8 recommandé</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2 id="faq">❓ FAQ</h2>
+
+        <h3>Questions générales</h3>
+        
+        <div class="faq-item">
+            <div class="faq-question">L'application est-elle gratuite ?</div>
+            <div class="faq-answer">Oui, l'application est gratuite. Seuls les services LLM cloud (OpenRouter) peuvent avoir des coûts.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Quels types de fichiers sont supportés ?</div>
+            <div class="faq-answer">Seuls les fichiers PDF contenant des devis de matelas sont supportés.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">L'application fonctionne-t-elle hors ligne ?</div>
+            <div class="faq-answer">Oui, avec Ollama (LLM local). OpenRouter nécessite une connexion internet.</div>
+        </div>
+
+        <h3>Questions techniques</h3>
+        
+        <div class="faq-item">
+            <div class="faq-question">Pourquoi le traitement prend-il du temps ?</div>
+            <div class="faq-answer">L'analyse LLM est intensive. Ollama est plus lent mais gratuit, OpenRouter est plus rapide mais payant.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Comment améliorer la précision ?</div>
+            <div class="faq-answer">Utilisez des PDF de bonne qualité, avec du texte clair et des spécifications détaillées.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Puis-je personnaliser les règles métier ?</div>
+            <div class="faq-answer">Oui, en modifiant les fichiers dans <code>backend/Référentiels/</code> et les modules <code>*_utils.py</code>.</div>
+        </div>
+
+        <h2 id="support-technique">🆘 Support technique</h2>
+
+        <div class="contact-info">
+            <h3>Ressources disponibles</h3>
+            <ul>
+                <li><strong>Ce guide</strong> : Guide complet d'utilisation</li>
+                <li><strong>README_GUI.md</strong> : Documentation de l'interface</li>
+                <li><strong>README_PRE_IMPORT.md</strong> : Documentation du pré-import</li>
+                <li><strong>README_CLIENT_EXTRACTION.md</strong> : Documentation de l'extraction client</li>
+            </ul>
+        </div>
+
+        <div class="contact-info">
+            <h3>Outils de diagnostic</h3>
+            <ul>
+                <li><strong>Logs détaillés</strong> : Activation via <code>config.py</code></li>
+                <li><strong>Mode debug</strong> : Interface avec informations techniques</li>
+                <li><strong>Tests unitaires</strong> : Validation des fonctionnalités</li>
+            </ul>
+        </div>
+
+        <div class="contact-info">
+            <h3>Exemples et templates</h3>
+            <ul>
+                <li><strong>Fichiers de test</strong> : <code>test_*.py</code> dans le projet</li>
+                <li><strong>Templates Excel</strong> : <code>template/template_matelas.xlsx</code></li>
+                <li><strong>Exemples PDF</strong> : Dossier <code>Commandes/</code></li>
+            </ul>
+        </div>
+
+        <div class="version-info">
+            <h3>📝 Notes de version</h3>
+            <p><strong>Version 1.0.0</strong> - Fonctionnalités principales :</p>
+            <ul>
+                <li>✅ Interface graphique complète</li>
+                <li>✅ Traitement LLM (Ollama/OpenRouter)</li>
+                <li>✅ Extraction des données client</li>
+                <li>✅ Détection automatique des matelas</li>
+                <li>✅ Pré-import Excel</li>
+                <li>✅ Export des résultats</li>
+            </ul>
+        </div>
+
+        <div class="success">
+            <h3>🎉 Merci d'utiliser Matelas Processor !</h3>
+            <p>Ce guide est régulièrement mis à jour. Pour toute question ou problème, consultez la section support technique ou contactez l'équipe de développement.</p>
+        </div>
+    </div>
+</body>
+</html> 

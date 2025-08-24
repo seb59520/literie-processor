@@ -1,0 +1,172 @@
+Tu es un assistant d'extraction spécialisé pour des devis de literie. Analyse le texte ci-dessous et génère uniquement un JSON structuré selon le format exact suivant.
+
+
+TEXTE À ANALYSER :
+{text}
+
+
+RÈGLES D'EXTRACTION STRICTES :
+
+
+1. STRUCTURE JSON OBLIGATOIRE :
+{
+  "societe": {
+    "nom": "nom de l'entreprise",
+    "adresse": "adresse complète"
+  },
+  "client": {
+    "nom": "nom du client",
+    "adresse": "adresse du client",
+    "code_client": "code client"
+  },
+  "commande": {
+    "numero": "numéro de commande",
+    "date": "date de commande",
+    "date_validite": "date de validité",
+    "commercial": "nom du commercial",
+    "origine": "origine de la commande"
+  },
+  "mode_mise_a_disposition": {
+    "emporte_client_C57": "texte si enlèvement client",
+    "fourgon_C58": "texte si livraison fourgon",
+    "transporteur_C59": "texte si transporteur"
+  },
+  "articles": [
+    {
+      "type": "matelas|sommier|accessoire|tête de lit|pieds|remise",
+      "description": "description complète de l'article",
+      "titre_cote": "Mr/Mme Gauche/Droit si applicable",
+      "information": "en-tête comme '1/ CHAMBRE XYZ' si présent",
+      "quantite": nombre,
+      "jumeaux": OUI|NON,
+      "dimensions": "format LxlxH",
+      "noyau": "type de noyau pour matelas",
+      "fermete": "niveau de fermeté",
+      "housse": "type de housse",
+      "matiere_housse": "matériau de la housse",
+      "taille_literie": "largeur_arrondie x longueur OU largeur_arrondieX2 x longueur (si type = 'matelas')",
+      "decoupe_noyau": "largeur_finale x longueur_finale (si type = 'matelas')",
+      "taille_housse": "largeur x longueur OU 2 x (largeur x longueur) (si type = 'matelas')",
+      "autres_caracteristiques": {
+        "caracteristique1": "valeur1",
+        "caracteristique2": "valeur2"
+      }
+    }
+  ]
+}
+
+
+2. RÈGLES SPÉCIFIQUES :
+
+
+Les champs `"taille_literie"`, `"decoupe_noyau"` et `"taille_housse"` :
+- **Présents uniquement pour les articles dont `"type" = "matelas"`**.
+- **Doivent être absents pour tous les autres types**.
+
+
+### A. `taille_literie`
+- Extraire la largeur et la longueur depuis `dimensions` (format `"LxlxH"`).
+- Si `jumeaux` = "OUI" → arrondir largeur à la dizaine supérieure, la multiplier par 2 → `"largeurX2 x longueur"`
+- Si `jumeaux` = "NON" → arrondir largeur à la dizaine supérieure → `"largeur x longueur"`
+
+
+### B. `decoupe_noyau`
+
+
+Règle : largeur + longueur ajustées selon `noyau` + `fermete` :
+
+
+| Noyau                        | Fermeté  | + Largeur | + Longueur |
+|-----------------------------|----------|-----------|------------|
+| Latex naturel               | Medium   | +1        | +2         |
+|                             | Ferme    | 0         | +1         |
+| Latex 7 zones               | Medium   | 0         | +2         |
+|                             | Ferme    | 0         | +1         |
+| Rainuré                     | Confort  | 0         | +2         |
+|                             | Medium   | 0         | +1         |
+|                             | Ferme    | -1        | -0.5       |
+| Latex 3 Z centre renforcé   | Medium   | 0         | +2         |
+|                             | Ferme    | 0         | +1         |
+| Select 43                   | Medium   | 0         | +2         |
+|                             | Ferme    | 0         | +1         |
+| Visco                       | Confort  | 0         | +2         |
+|                             | Medium   | 0         | +1         |
+
+
+- Si pas de correspondance claire : ne pas remplir `"decoupe_noyau"` (laisser `""`)
+
+
+### C. `taille_housse`
+- Si `jumeaux` = "NON" → `"largeur x longueur"`
+- Si `jumeaux` = "OUI" → `"2 x (largeur x longueur)"`
+
+
+Autres règles :
+- `autres_caracteristiques` contient les options secondaires
+- `dimensions` reste au format `"LxlxH"`
+- Si un champ est absent → `null` pour les nombres, `""` pour les textes
+
+
+---
+
+
+3. EXEMPLE :
+```json
+{
+  "societe": {
+    "nom": "SAS Literie Westelynck",
+    "adresse": "525 RD 642 - 59190 BORRE"
+  },
+  "client": {
+    "nom": "Mr et Me LAGADEC HELENE",
+    "adresse": "25 RUE DE L'ÉGLISE, 59670 BAVINCHOVE",
+    "code_client": "LAGAHEBAV"
+  },
+  "commande": {
+    "numero": "CM00009581",
+    "date": "19/07/2025",
+    "date_validite": "",
+    "commercial": "P. ALINE",
+    "origine": "COMMANDE"
+  },
+  "mode_mise_a_disposition": {
+    "emporte_client_C57": "ENLÈVEMENT PAR VOS SOINS",
+    "fourgon_C58": "",
+    "transporteur_C59": ""
+  },
+  "articles": [
+    {
+      "type": "matelas",
+      "description": "MATELAS JUMEAUX LATEX NATUREL FERME 79/198/22",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 2,
+      "jumeaux": "OUI",
+      "dimensions": "79x198x22",
+      "noyau": "LATEX NATUREL",
+      "fermete": "FERME",
+      "housse": "MATELASSÉE",
+      "matiere_housse": "TENCEL",
+      "taille_literie": "160x198",
+      "decoupe_noyau": "79x199",
+      "taille_housse": "2 x (79x198)",
+      "autres_caracteristiques": {
+        "poignées": "oui"
+      }
+    },
+    {
+      "type": "pieds",
+      "description": "4 PIEDS BOIS",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 4,
+      "jumeaux": "NON",
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {}
+    }
+  ]
+} 

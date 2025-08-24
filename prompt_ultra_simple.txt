@@ -1,0 +1,89 @@
+Tu es un assistant d'extraction de données. Analyse le texte ci-dessous et extrait UNIQUEMENT les informations présentes.
+
+TEXTE À ANALYSER :
+{text}
+
+INSTRUCTIONS STRICTES :
+- EXTRAIS TOUTES les informations présentes dans le texte
+- NE JAMAIS inventer ou utiliser de valeurs par défaut
+- Si une information n'est pas dans le texte, utilise "" (chaîne vide)
+- COPIE LITTÉRALEMENT les données du texte
+
+EXTRAIS CES INFORMATIONS :
+
+1. NOM DU CLIENT : (trouve le nom dans le texte)
+2. ADRESSE DU CLIENT : (trouve l'adresse dans le texte)
+3. CODE CLIENT : (trouve le code client dans le texte)
+4. NUMÉRO DE COMMANDE : (trouve le numéro de commande dans le texte)
+5. DATE DE COMMANDE : (trouve la date dans le texte)
+6. COMMERCIAL : (trouve le nom du commercial dans le texte)
+7. TOTAL TTC : (trouve le montant total TTC dans le texte)
+8. ACOMPTE : (trouve le montant d'acompte dans le texte)
+
+EXEMPLE D'EXTRACTION :
+Si le texte contient : "Mr et Me DEPYPER CHRISTIAN & ANNIE"
+Alors extraire : "Mr et Me DEPYPER CHRISTIAN & ANNIE"
+PAS : "Nom du client non spécifié"
+
+Réponds avec un JSON simple :
+{{
+  "societe": {{
+    "nom": "nom de l'entreprise",
+    "capital": "capital social",
+    "adresse": "adresse complète",
+    "telephone": "numéro de téléphone",
+    "email": "adresse email",
+    "siret": "numéro SIRET",
+    "APE": "code APE",
+    "CEE": "numéro CEE",
+    "banque": "nom de la banque",
+    "IBAN": "numéro IBAN"
+  }},
+  "client": {{
+    "nom": "nom du client",
+    "adresse": "adresse du client",
+    "code_client": "code client"
+  }},
+  "commande": {{
+    "numero": "numéro de commande",
+    "date": "date de commande",
+    "date_validite": "date de validité",
+    "commercial": "nom du commercial",
+    "origine": "origine de la commande"
+  }},
+  "mode_mise_a_disposition": {{
+    "emporte_client_C57": "texte si enlèvement client",
+    "fourgon_C58": "texte si livraison fourgon",
+    "transporteur_C59": "texte si transporteur"
+  }},
+  "articles": [
+    {{
+      "type": "matelas|sommier|accessoire|tête de lit|pieds|remise",
+      "description": "description complète de l'article",
+      "titre_cote": "Mr/Mme Gauche/Droit si applicable",
+      "information": "en-tête comme '1/ CHAMBRE XYZ' si présent",
+      "quantite": nombre,
+      "dimensions": "format LxlxH",
+      "noyau": "type de noyau pour matelas",
+      "fermete": "niveau de fermeté",
+      "housse": "type de housse",
+      "matiere_housse": "matériau de la housse",
+      "autres_caracteristiques": {{
+        "caracteristique1": "valeur1",
+        "caracteristique2": "valeur2"
+      }}
+    }}
+  ],
+  "paiement": {{
+    "conditions": "conditions de paiement",
+    "port_ht": montant_ht_port,
+    "base_ht": montant_ht_total,
+    "taux_tva": pourcentage_tva,
+    "total_ttc": montant_ttc,
+    "acompte": montant_acompte,
+    "net_a_payer": montant_final
+  }}
+}}
+
+
+EXTRAIS MAINTENANT les données du texte fourni. 

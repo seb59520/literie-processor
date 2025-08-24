@@ -1,0 +1,21 @@
+{
+  "llm_provider": "ollama",
+  "ollama": {
+    "model": "gpt-oss:20b",
+    "base_url": "http://localhost:11434",
+    "timeout": 300
+  },
+  "openai": {},
+  "anthropic": {},
+  "gemini": {},
+  "mistral": {},
+  "openrouter": {},
+  "current_llm_provider": "openrouter",
+  "llm_api_key_openrouter": "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",
+  "llm_api_key_openai": "",
+  "llm_api_key_anthropic": "",
+  "llm_api_key_gemini": "",
+  "llm_api_key_mistral": "",
+  "last_semaine": 34,
+  "last_annee": 2025
+}

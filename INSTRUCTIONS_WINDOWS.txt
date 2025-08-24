@@ -1,0 +1,54 @@
+# Instructions pour générer l'exécutable Windows et préparer le dossier d'installation
+
+## 1. Prérequis
+- Être sur un PC Windows
+- Avoir Python 3.10 ou 3.11 installé (https://www.python.org/downloads/windows/)
+- Avoir copié tout le dossier MATELAS_FINAL sur le PC
+
+## 2. Installation des dépendances
+Ouvre un terminal (cmd ou PowerShell) dans le dossier MATELAS_FINAL :
+
+    python -m pip install --upgrade pip
+    python -m pip install -r requirements_gui.txt
+    python -m pip install pyinstaller
+
+## 3. Génération de l'exécutable avec PyInstaller
+Toujours dans le dossier MATELAS_FINAL, exécute :
+
+    pyinstaller run_gui.py --name Matelas_Processor --noconfirm --windowed
+
+Cela va créer un dossier :
+    dist\Matelas_Processor
+
+## 4. Préparation du dossier d'installation avec le batch
+1. Place le script `prepare_dist.bat` (fourni) à la racine du projet (MATELAS_FINAL).
+2. Exécute-le (double-clic ou dans le terminal) :
+
+    prepare_dist.bat
+
+Le script va copier automatiquement :
+- backend\
+- template\
+- config.py
+- config\ (si présent)
+- EULA.txt, GUIDE_INSTALLATION.md, README.md, STOCKAGE_SECURISE_API.md, CENTRAGE_EXCEL.md
+
+...dans le dossier `dist\Matelas_Processor`.
+
+## 5. Test et distribution
+- Va dans `dist\Matelas_Processor` et lance `Matelas_Processor.exe` pour vérifier que tout fonctionne.
+- Si OK, zippe le dossier `Matelas_Processor` pour distribution à tes utilisateurs Windows.
+
+---
+
+## Résumé rapide
+1. Installer les dépendances
+2. Générer l'exécutable avec PyInstaller
+3. Lancer le batch `prepare_dist.bat`
+4. Tester et distribuer le dossier complet
+
+---
+
+**Astuce :**
+- Si tu ajoutes de nouveaux fichiers/dossiers nécessaires, adapte le batch en conséquence.
+- Pour toute erreur, lance l'exécutable depuis un terminal pour voir les messages. 

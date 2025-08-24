@@ -1,0 +1,31 @@
+CONTRAT DE LICENCE D’UTILISATION DE L’APPLICATION « TRAITEMENT COMMANDES PDF MATELAS »
+
+Éditeur : SCINNOVA
+Client : LITERIE WESTEYLYNCK
+Date : 9 juillet 2025
+Lieu : Lille
+
+1. Objet
+Le présent contrat a pour objet de définir les conditions d’utilisation de l’application professionnelle de traitement automatisé de commandes PDF de matelas, développée par SCINNOVA pour LITERIE WESTEYLYNCK.
+
+2. Propriété intellectuelle
+L’application, son code source, ses logos, sa documentation et ses fichiers associés sont la propriété exclusive de SCINNOVA. Toute reproduction, modification ou diffusion, totale ou partielle, sans autorisation écrite, est interdite.
+
+3. Licence d’utilisation
+SCINNOVA accorde à LITERIE WESTEYLYNCK une licence non exclusive, non transférable, pour utiliser l’application dans le cadre de ses activités professionnelles internes. Toute utilisation à d’autres fins ou par des tiers est interdite sans accord préalable.
+
+4. Garantie et responsabilité
+L’application est fournie « en l’état ». SCINNOVA ne saurait être tenue responsable des dommages directs ou indirects résultant de l’utilisation de l’application. L’utilisateur s’engage à effectuer des sauvegardes régulières de ses données.
+
+5. Support et mises à jour
+SCINNOVA assure un support technique et des mises à jour correctives selon les modalités convenues contractuellement avec LITERIE WESTEYLYNCK.
+
+6. Durée
+Le présent contrat prend effet à la date d’acceptation par l’utilisateur et reste valable tant que l’application est utilisée par LITERIE WESTEYLYNCK.
+
+7. Acceptation
+L’utilisation de l’application vaut acceptation pleine et entière du présent contrat.
+
+Fait à Lille, le 9 juillet 2025
+
+SCINNOVA / LITERIE WESTEYLYNCK 

@@ -1,0 +1,35 @@
+# Requirements pour la compilation Windows avec PyInstaller
+# Version minimale pour assurer la compatibilité
+
+# PyInstaller et outils de compilation
+pyinstaller>=5.0
+setuptools>=60.0
+
+# Interface graphique
+PyQt6>=6.4.0
+PyQt6-Qt6>=6.4.0
+
+# Requêtes HTTP et API
+requests>=2.25.0
+urllib3>=1.26.0
+
+# Traitement de données
+pandas>=1.3.0
+openpyxl>=3.0.0
+
+# Utilitaires système
+psutil>=5.8.0  # Pour le monitoring système (optionnel)
+pathlib2>=2.3.0 ; python_version < "3.4"
+
+# Formats et texte
+markdown>=3.3.0  # Pour le traitement Markdown (optionnel)
+
+# Concurrence et threads  
+concurrent-futures>=3.1.0 ; python_version < "3.2"
+
+# Support Windows spécifique
+pywin32>=227 ; sys_platform == "win32"
+pywin32-ctypes>=0.2.0 ; sys_platform == "win32"
+
+# Outils de compression (optionnel, pour réduire la taille)
+upx-ucl>=3.96  # Compression UPX (si disponible)

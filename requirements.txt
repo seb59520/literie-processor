@@ -1,0 +1,27 @@
+# Requirements pour l'application Processeur de Devis Literie
+# Version de production
+
+# Interface graphique
+PyQt6>=6.4.0
+PyQt6-Qt6>=6.4.0
+
+# Requêtes HTTP et API
+requests>=2.25.0
+urllib3>=1.26.0
+
+# Traitement de données
+pandas>=1.3.0
+openpyxl>=3.0.0
+
+# Utilitaires système (optionnel)
+psutil>=5.8.0
+
+# Support de formats (optionnel)
+markdown>=3.3.0
+
+# Développement et tests
+pytest>=7.0.0
+pytest-qt>=4.0.0
+
+# Compilation (optionnel - pour développeurs)
+pyinstaller>=5.0

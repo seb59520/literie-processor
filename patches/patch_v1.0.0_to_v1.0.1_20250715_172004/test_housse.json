@@ -1,0 +1,25 @@
+{
+  "Matelas": [
+    {
+      "description": "MATELAS 1 PIÈCE - MOUSSE RAINURÉE 7 ZONES DIFFÉRENCIÉES FERME (50KG/ M3) - HOUSSE MATELASSÉE TENCEL LUXE 3D AVEC POIGNÉES INTÉGRÉES LAVABLE A 40°",
+      "quantité": 2,
+      "jumeau ou 1 pièce": "1 pièce",
+      "dosseret / tete": "",
+      "dimension_housse": "79 x 198"
+    }
+  ],
+  "Housse": [],
+  "Pieds": [],
+  "Sommier": [],
+  "Autres": [
+    {
+      "description": "REMISE : 5% ENLÈVEMENT PAR VOS SOINS",
+      "quantité": 1
+    }
+  ],
+  "Client": {
+    "nom": "Mr DEVERSENNE CLAUDE",
+    "adresse": "81 MEULENSTRAETE 59270 SAINT JANS CAPPEL",
+    "Dimension projet": ""
+  }
+} 
