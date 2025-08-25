@@ -25,26 +25,37 @@ INSTRUCTIONS D'INSTALLATION ET D'UTILISATION:
 
 5. PROBLEMES COURANTS:
 
-   A. FENETRE NON REDIMENSIONNABLE:
+   A. FICHIERS EXCEL NON GÉNÉRÉS:
+      - CAUSE: Erreur 401 API (OpenRouter/OpenAI/Anthropic)
+      - SOLUTION RAPIDE: Consultez SOLUTION_RAPIDE.txt
+      - Configurez d'abord votre clé API (voir GUIDE_API_KEYS.txt)
+      - Testez avec Test_API.bat
+      - Une fois l'API fonctionnelle, les Excel seront générés
+
+   B. FENETRE NON REDIMENSIONNABLE:
       - Executez "Test_Resize.bat" pour appliquer le fix
       - Ou utilisez Alt+Espace puis "Agrandir" 
       - Ou double-cliquez sur la barre de titre
       - Ou faites glisser les bords de la fenetre avec la souris
 
-   B. IMAGES NON AFFICHEES:
+   C. IMAGES NON AFFICHEES:
       - Verifiez que le dossier "assets/" est present
       - Contient: logo_westelynck.png, lit-double.png, etc.
       - Si manquant: recopiez depuis le projet principal
 
-   C. MODULES MANQUANTS:
+   D. MODULES MANQUANTS:
       - Executez "python check_dependencies.py" pour diagnostic
       - Ou relancez "Lancer_Matelas.bat" pour installation auto
 
 6. FICHIERS INCLUS:
    - Lancer_Matelas.bat       -> Lanceur principal
+   - SOLUTION_RAPIDE.txt      -> Guide de réparation Excel
+   - GUIDE_API_KEYS.txt       -> Configuration des clés API
+   - Test_API.bat            -> Test connexion API
+   - Test_Excel.bat          -> Test génération Excel
+   - DIAGNOSTIC_COMPLET.bat  -> Diagnostic complet
+   - Test_Resize.bat         -> Test redimensionnement
    - check_dependencies.py    -> Verification des modules
-   - quick_resize_fix.py      -> Fix redimensionnement
-   - Test_Resize.bat         -> Test interface
    - assets/                 -> Images et icones
    - backend/                -> Modules metier
    - utilities/              -> Outils supplementaires

@@ -1,0 +1,68 @@
+===============================================
+    SOLUTION RAPIDE - EXCEL NON GÉNÉRÉ
+===============================================
+
+🎯 PROBLÈME: Fichier Excel non généré
+🔍 CAUSE: Erreur 401 OpenRouter (API non fonctionnelle)
+
+═══════════════════════════════════════════════
+
+⚡ SOLUTION EN 5 ÉTAPES:
+
+1. OBTENIR UNE CLÉ API OPENROUTER (GRATUIT):
+   → Allez sur: https://openrouter.ai/
+   → Créez un compte gratuit
+   → Account → Keys → Create Key
+   → Copiez la clé (sk-or-v1-...)
+
+2. CONFIGURER LA CLÉ:
+   → Ouvrez matelas_config.json
+   → Trouvez: "llm_api_key_openrouter": "VOTRE_CLE_API_ICI"
+   → Remplacez VOTRE_CLE_API_ICI par votre vraie clé
+   → Sauvegardez le fichier
+
+3. TESTER L'API:
+   → Double-cliquez: Test_API.bat
+   → Vérifiez que le test réussit (✅)
+
+4. RELANCER L'APPLICATION:
+   → Double-cliquez: Lancer_Matelas.bat
+   → Sélectionnez vos PDFs
+   → Cliquez "Traiter les fichiers"
+
+5. RÉCUPÉRER L'EXCEL:
+   → Une fois le traitement terminé
+   → Cliquez "Ouvrir dossier résultats" 
+   → Votre fichier Excel sera là !
+
+═══════════════════════════════════════════════
+
+❓ POURQUOI L'EXCEL N'EST PAS GÉNÉRÉ?
+
+Le processus fonctionne ainsi:
+PDF → API traite → Données extraites → Excel généré
+
+Si l'API ne fonctionne pas (erreur 401):
+PDF → ❌ ÉCHEC API → Pas de données → Pas d'Excel
+
+C'est pourquoi vous devez d'abord réparer l'API!
+
+═══════════════════════════════════════════════
+
+🔧 TESTS RAPIDES:
+
+• Test API: Test_API.bat  
+• Diagnostic complet: DIAGNOSTIC_COMPLET.bat
+• Si problème redimensionnement: Test_Resize.bat
+
+═══════════════════════════════════════════════
+
+✅ APRÈS LA RÉPARATION:
+
+Une fois l'API fonctionnelle, votre application:
+- Traitera les PDFs correctement
+- Extraira les données avec l'IA
+- Générera automatiquement les fichiers Excel
+- Les sauvegardera dans le dossier résultats
+
+═══════════════════════════════════════════════
