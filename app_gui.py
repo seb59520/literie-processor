@@ -3467,6 +3467,70 @@ INTERFACE:
             self.preimport_tab = QWidget()
             preimport_layout = QVBoxLayout(self.preimport_tab)
             
+            # Texte d'information
+            preimport_info = QLabel("📋 Données formatées pour import Excel")
+            preimport_info.setStyleSheet("font-weight: bold; color: #666; padding: 5px;")
+            preimport_layout.addWidget(preimport_info)
+            
+            # Zone de filtres pour le pré-import
+            filter_frame = QFrame()
+            filter_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 5px;
+                    padding: 5px;
+                }
+            """)
+            filter_layout = QHBoxLayout(filter_frame)
+            
+            # Label pour les filtres
+            filter_label = QLabel("🔍 Filtres :")
+            filter_label.setStyleSheet("font-weight: bold; color: #495057;")
+            filter_layout.addWidget(filter_label)
+            
+            # Checkbox pour Matelas
+            self.filter_matelas = QCheckBox("Matelas")
+            self.filter_matelas.setChecked(True)
+            self.filter_matelas.stateChanged.connect(self.apply_preimport_filters)
+            self.filter_matelas.setStyleSheet("""
+                QCheckBox {
+                    font-weight: bold;
+                    color: #007bff;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: #007bff;
+                    border: 2px solid #007bff;
+                }
+            """)
+            filter_layout.addWidget(self.filter_matelas)
+            
+            # Checkbox pour Sommiers
+            self.filter_sommiers = QCheckBox("Sommiers")
+            self.filter_sommiers.setChecked(True)
+            self.filter_sommiers.stateChanged.connect(self.apply_preimport_filters)
+            self.filter_sommiers.setStyleSheet("""
+                QCheckBox {
+                    font-weight: bold;
+                    color: #28a745;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: #28a745;
+                    border: 2px solid #28a745;
+                }
+            """)
+            filter_layout.addWidget(self.filter_sommiers)
+            
+            # Espaceur
+            filter_layout.addStretch()
+            
+            # Compteur d'éléments
+            self.preimport_count_label = QLabel("0 éléments")
+            self.preimport_count_label.setStyleSheet("color: #6c757d; font-size: 12px;")
+            filter_layout.addWidget(self.preimport_count_label)
+            
+            preimport_layout.addWidget(filter_frame)
+            
             # Créer le tableau pour les données de pré-import
             self.preimport_table = QTableWidget()
             self.preimport_table.setAlternatingRowColors(True)
@@ -3474,10 +3538,8 @@ INTERFACE:
             self.preimport_table.verticalHeader().setVisible(False)
             preimport_layout.addWidget(self.preimport_table)
             
-            # Texte d'information
-            preimport_info = QLabel("📋 Données formatées pour import Excel")
-            preimport_info.setStyleSheet("font-weight: bold; color: #666; padding: 5px;")
-            preimport_layout.insertWidget(0, preimport_info)
+            # Stocker les données complètes pour le filtrage
+            self.all_preimport_data = []
             
             self.tabs.addTab(self.preimport_tab, "Pré-import")
             
@@ -5113,19 +5175,55 @@ INTERFACE:
     def display_preimport(self, preimport_data):
         """Affiche les données de pré-import dans un tableau combiné matelas + sommiers"""
         try:
+            # Stocker les données complètes pour le filtrage
+            self.all_preimport_data = preimport_data if preimport_data else []
+            
+            # Appliquer les filtres
+            self.apply_preimport_filters()
+            
+        except Exception as e:
+            if hasattr(self, 'app_logger') and self.app_logger:
+                self.app_logger.error(f"Erreur lors de l'affichage du pré-import: {e}")
+    
+    def apply_preimport_filters(self):
+        """Applique les filtres sur les données de pré-import"""
+        try:
+            # Récupérer les données complètes
+            preimport_data = getattr(self, 'all_preimport_data', [])
+            
             if not preimport_data:
                 self.preimport_table.setRowCount(0)
                 self.preimport_table.setColumnCount(0)
+                if hasattr(self, 'preimport_count_label'):
+                    self.preimport_count_label.setText("0 éléments")
                 return
+            
+            # Filtrer les données selon les checkboxes
+            show_matelas = getattr(self, 'filter_matelas', None) and self.filter_matelas.isChecked()
+            show_sommiers = getattr(self, 'filter_sommiers', None) and self.filter_sommiers.isChecked()
+            
+            filtered_data = []
+            for item in preimport_data:
+                type_article = item.get('type_article', 'matelas')
+                
+                if (type_article == 'matelas' and show_matelas) or \
+                   (type_article == 'sommier' and show_sommiers):
+                    filtered_data.append(item)
+            
+            # Mettre à jour le compteur
+            if hasattr(self, 'preimport_count_label'):
+                total_items = len(preimport_data)
+                filtered_items = len(filtered_data)
+                self.preimport_count_label.setText(f"{filtered_items}/{total_items} éléments")
             
             # Headers combinés pour matelas et sommiers
             headers = ["Type", "Client", "Commande", "Semaine", "Noyau/Type", "Quantité", "Dimensions", "Hauteur", "Housse/Matériau", "Dimensions Housse", "Longueur Housse", "Poignées"]
             self.preimport_table.setColumnCount(len(headers))
             self.preimport_table.setHorizontalHeaderLabels(headers)
             
-            # Données
-            self.preimport_table.setRowCount(len(preimport_data))
-            for i, item in enumerate(preimport_data):
+            # Afficher les données filtrées
+            self.preimport_table.setRowCount(len(filtered_data))
+            for i, item in enumerate(filtered_data):
                 try:
                     # Type d'article
                     type_article = item.get('type_article', 'matelas')
@@ -5230,6 +5328,9 @@ INTERFACE:
             self.all_preimport = []
             self.all_excel_files = []
             
+            # Réinitialiser les données de filtrage du pré-import
+            self.all_preimport_data = []
+            
             # Effacer l'affichage
             self.summary_text.clear()
             self.matelas_config_table.setRowCount(0)
@@ -5238,6 +5339,10 @@ INTERFACE:
             self.sommiers_config_table.setColumnCount(0)
             self.preimport_table.setRowCount(0)
             self.preimport_table.setColumnCount(0)
+            
+            # Réinitialiser le compteur de filtrage
+            if hasattr(self, 'preimport_count_label'):
+                self.preimport_count_label.setText("0 éléments")
             if hasattr(self, 'json_text'):
                 self.json_text.clear()
             if hasattr(self, 'excel_text'):
