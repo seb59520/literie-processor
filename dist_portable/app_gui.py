@@ -57,17 +57,24 @@ except ImportError as e:
 
 # Configuration du logging avancé
 try:
+    from backend.advanced_logging import setup_advanced_logging
     advanced_logger = setup_advanced_logging()
     print("✅ Système de logging avancé initialisé")
     ADVANCED_LOGGING_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ Logging avancé non disponible: {e}")
-    advanced_logger = None
+    advanced_logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO)
+    ADVANCED_LOGGING_AVAILABLE = False
+except Exception as e:
+    print(f"⚠️ Erreur configuration logging: {e}")
+    advanced_logger = logging.getLogger(__name__)
+    logging.basicConfig(level=logging.INFO)
     ADVANCED_LOGGING_AVAILABLE = False
 
 # Import du module de stockage sécurisé
 try:
-    from .backend.secure_storage import secure_storage
+    from backend.secure_storage import secure_storage
     SECURE_STORAGE_AVAILABLE = True
 except ImportError as e:
     print(f"Module de stockage sécurisé non disponible: {e}")

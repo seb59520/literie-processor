@@ -25,7 +25,8 @@ def find_missing_modules():
         'version',
         'liste_champs_pre_import',
         'workflow_manager_widget',
-        'gui_enhancements'
+        'gui_enhancements',
+        'ui_optimizations'
     ]
     
     # Modules Python standards
