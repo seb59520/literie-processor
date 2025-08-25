@@ -67,13 +67,17 @@ if errorlevel 1 (
     echo ================================================================
     echo.
     echo Solutions possibles:
-    echo 1. Executez check_dependencies.py pour voir les modules manquants
-    echo 2. Verifiez que Python 3.8+ est installe correctement
-    echo 3. Executez ce script en tant qu'administrateur
-    echo 4. Verifiez votre connexion internet (pour les API)
-    echo 5. Consultez le fichier README_PORTABLE.txt
+    echo 1. ERREUR 401 (API): Executez Test_API.bat
+    echo 2. Modules manquants: python check_dependencies.py
+    echo 3. Redimensionnement: Test_Resize.bat
+    echo 4. Verifiez que Python 3.8+ est installe correctement
+    echo 5. Executez ce script en tant qu'administrateur
+    echo 6. Consultez GUIDE_API_KEYS.txt pour la configuration
     echo.
-    echo Pour diagnostic complet: python check_dependencies.py
+    echo Diagnostics rapides:
+    echo - Test API: Test_API.bat
+    echo - Test modules: python check_dependencies.py
+    echo - Test interface: Test_Resize.bat
     echo.
     pause
 ) else (

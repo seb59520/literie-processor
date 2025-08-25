@@ -1,0 +1,129 @@
+===============================================
+    GUIDE DE CONFIGURATION DES CLÉS API
+===============================================
+
+ERREUR 401 - AUTHENTICATION FAILED
+Cette erreur signifie que votre clé API n'est pas valide ou correctement configurée.
+
+═══════════════════════════════════════════════
+
+1. OPENROUTER (RECOMMANDÉ - GRATUIT)
+═══════════════════════════════════════════════
+
+A. OBTENIR UNE CLÉ API OPENROUTER:
+   1. Allez sur: https://openrouter.ai/
+   2. Créez un compte (gratuit)
+   3. Allez dans: Account → Keys → Create Key
+   4. Copiez la clé (commence par "sk-or-v1-...")
+
+B. CONFIGURATION:
+   1. Ouvrez matelas_config.json
+   2. Trouvez la ligne: "current_llm_provider": "openrouter"
+   3. Trouvez la ligne: "llm_api_key_openrouter": "VOTRE_CLE_API_ICI"
+   4. Remplacez VOTRE_CLE_API_ICI par votre vraie clé
+   
+   Exemple:
+   "llm_api_key_openrouter": "sk-or-v1-abcd1234567890..."
+
+C. VÉRIFICATION:
+   - Executez: Test_API.bat
+   - Ou: python test_api_connection.py
+
+═══════════════════════════════════════════════
+
+2. OPENAI (PAYANT)
+═══════════════════════════════════════════════
+
+A. OBTENIR UNE CLÉ API OPENAI:
+   1. Allez sur: https://platform.openai.com/
+   2. Créez un compte
+   3. Ajoutez un mode de paiement (requis)
+   4. Allez dans: API Keys → Create new secret key
+   5. Copiez la clé (commence par "sk-...")
+
+B. CONFIGURATION:
+   1. Ouvrez matelas_config.json
+   2. Changez: "current_llm_provider": "openai"
+   3. Changez: "llm_api_key_openai": "votre-clé-ici"
+
+═══════════════════════════════════════════════
+
+3. ANTHROPIC CLAUDE (PAYANT)
+═══════════════════════════════════════════════
+
+A. OBTENIR UNE CLÉ API ANTHROPIC:
+   1. Allez sur: https://console.anthropic.com/
+   2. Créez un compte
+   3. Ajoutez un mode de paiement
+   4. Allez dans: Settings → API Keys
+   5. Copiez la clé (commence par "sk-ant-...")
+
+B. CONFIGURATION:
+   1. Ouvrez matelas_config.json
+   2. Changez: "current_llm_provider": "anthropic"
+   3. Changez: "llm_api_key_anthropic": "votre-clé-ici"
+
+═══════════════════════════════════════════════
+
+4. DÉPANNAGE ERREUR 401
+═══════════════════════════════════════════════
+
+A. VÉRIFICATIONS ESSENTIELLES:
+   ✓ La clé API est-elle correctement copiée? (pas d'espaces)
+   ✓ Le provider correspond-il à votre clé?
+   ✓ La clé a-t-elle expiré?
+   ✓ Avez-vous les permissions nécessaires?
+
+B. ERREURS COURANTES:
+   • Clé copiée partiellement
+   • Espaces avant ou après la clé
+   • Confusion entre providers (OpenRouter ≠ OpenAI)
+   • Virgules manquantes dans le JSON
+   • Guillemets manquants
+
+C. EXEMPLE DE CONFIGURATION COMPLÈTE:
+
+{
+  "llm_provider": "ollama",
+  "current_llm_provider": "openrouter",
+  "llm_api_key_openrouter": "sk-or-v1-1234567890abcdef...",
+  "llm_api_key_openai": "",
+  "llm_api_key_anthropic": "",
+  "last_semaine": 34,
+  "last_annee": 2025
+}
+
+═══════════════════════════════════════════════
+
+5. TESTS ET VALIDATION
+═══════════════════════════════════════════════
+
+A. TESTER VOTRE CONFIGURATION:
+   1. Sauvegardez matelas_config.json
+   2. Executez: Test_API.bat
+   3. Vérifiez le résultat
+
+B. SI LE TEST ÉCHOUE:
+   • Vérifiez le format JSON avec un validateur en ligne
+   • Assurez-vous que toutes les virgules sont présentes
+   • Vérifiez qu'il n'y a pas de caractères invisibles
+
+C. SI LE TEST RÉUSSIT:
+   • Relancez l'application principale
+   • L'erreur 401 devrait être résolue
+
+═══════════════════════════════════════════════
+
+6. SUPPORT TECHNIQUE
+═══════════════════════════════════════════════
+
+En cas de problème persistant:
+1. Executez: python check_dependencies.py
+2. Executez: Test_API.bat
+3. Vérifiez les logs d'erreur détaillés
+4. Consultez la documentation du provider API
+
+RECOMMENDATION: Utilisez OpenRouter (gratuit) pour commencer.
+Il offre accès à de nombreux modèles sans frais initiaux.
+
+═══════════════════════════════════════════════
