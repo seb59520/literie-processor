@@ -40,17 +40,20 @@ python -m pip install psutil --quiet --disable-pip-version-check 2>nul
 echo [OK] Dependencies installees
 echo.
 
-REM Verifier que les modules critiques sont disponibles
-echo Verification des modules...
-python -c "import PyQt6.QtWidgets; print('[OK] PyQt6 disponible')" 2>nul
+REM Verifier les dependances avec le script de verification
+echo Verification complete des modules...
+python check_dependencies.py
 if errorlevel 1 (
-    echo [ERREUR] PyQt6 non disponible
-    echo Reinstallation de PyQt6...
-    python -m pip install PyQt6 --force-reinstall --quiet
+    echo.
+    echo [ATTENTION] Dependances manquantes detectees
+    echo L'application peut ne pas fonctionner correctement
+    echo.
+    pause
 )
 
-REM Lancer l'application
 echo.
+
+REM Lancer l'application
 echo Lancement du Processeur de Devis Literie...
 echo.
 
@@ -64,12 +67,13 @@ if errorlevel 1 (
     echo ================================================================
     echo.
     echo Solutions possibles:
-    echo 1. Verifiez que Python 3.8+ est installe
-    echo 2. Executez ce script en tant qu'administrateur
-    echo 3. Verifiez votre connexion internet (pour les API)
-    echo 4. Consultez le fichier README_PORTABLE.txt
+    echo 1. Executez check_dependencies.py pour voir les modules manquants
+    echo 2. Verifiez que Python 3.8+ est installe correctement
+    echo 3. Executez ce script en tant qu'administrateur
+    echo 4. Verifiez votre connexion internet (pour les API)
+    echo 5. Consultez le fichier README_PORTABLE.txt
     echo.
-    echo Pour obtenir de l'aide, contactez le support technique
+    echo Pour diagnostic complet: python check_dependencies.py
     echo.
     pause
 ) else (
