@@ -1,0 +1,21 @@
+{
+  "server_version": "1.0.0",
+  "last_update": "2025-09-01T20:29:13.110573",
+  "versions": [
+    {
+      "version": "3.10.0",
+      "filename": "matelas_v3.10.0_test.zip",
+      "date": "2025-09-01T20:28:00Z",
+      "description": "Version de test avec système de mise à jour automatique",
+      "changelog": "- ✨ Nouveau système de mise à jour automatique\n- 🔄 Vérifications périodiques des mises à jour\n- 📦 Installation automatique des mises à jour",
+      "size": 1275702,
+      "hash": "test_hash",
+      "downloads": 0
+    }
+  ],
+  "patches": [],
+  "statistics": {
+    "total_downloads": 0,
+    "active_versions": 1
+  }
+}

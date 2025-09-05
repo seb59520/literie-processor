@@ -1,0 +1,16 @@
+{
+    "update_server": {
+        "url": "https://edceecf7fdaf.ngrok-free.app",
+        "configured_at": "2025-09-02T20:15:01.129710",
+        "type": "internet"
+    },
+    "telemetry": {
+        "enabled": true,
+        "collect_system_info": true,
+        "collect_usage_stats": true
+    },
+    "security": {
+        "verify_ssl": true,
+        "timeout": 30
+    }
+}

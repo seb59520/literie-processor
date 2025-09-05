@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-glx libxkbcommon-x11-0 libxcb-xinerama0
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements_gui.txt
+        pip install pytest pytest-qt
+    
+    - name: Test imports
+      run: |
+        python -c "import PyQt6; print('PyQt6 OK')"
+        python -c "import backend.main; print('Backend OK')" 
+        python -c "from app_gui import *; print('GUI imports OK')"
+    
+    - name: Run basic functionality tests
+      run: |
+        python -c "
+        from backend.matelas_utils import detecter_noyau_matelas
+        from backend.tableau_hauteur_utils import obtenir_hauteur_matelas
+        print('Core functions OK')
+        "

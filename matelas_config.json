@@ -1,0 +1,30 @@
+{
+  "llm_provider": "ollama",
+  "ollama": {
+    "model": "gpt-oss:20b",
+    "base_url": "http://localhost:11434",
+    "timeout": 300
+  },
+  "openai": {},
+  "anthropic": {},
+  "gemini": {},
+  "mistral": {},
+  "openrouter": {},
+  "current_llm_provider": "openrouter",
+  "llm_api_key_openrouter": "YOUR_OPENROUTER_API_KEY_HERE",
+  "llm_api_key_openai": "",
+  "llm_api_key_anthropic": "",
+  "llm_api_key_gemini": "",
+  "llm_api_key_mistral": "",
+  "last_semaine": 36,
+  "last_annee": 2025,
+  "noyau_order": [
+    "LATEX NATUREL",
+    "MOUSSE VISCO",
+    "LATEX MIXTE 7 ZONES",
+    "MOUSSE RAINUREE 7 ZONES",
+    "LATEX RENFORC\u00c9",
+    "SELECT 43"
+  ],
+  "server_url": "https://eaef395e9c31.ngrok-free.app"
+}

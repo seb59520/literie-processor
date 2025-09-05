@@ -1,0 +1,26 @@
+{
+  "version": "v1.1.0_structure_renforcee",
+  "date": "2025-09-03T13:56:44.825330",
+  "description": "Ajout détection structure renforcée pour sommiers",
+  "files_updated": [
+    {
+      "source": "backend/sommier_utils.py",
+      "target": "backend/sommier_utils.py",
+      "description": "Ajout de la fonction detecter_structure_renforcee_sommier()"
+    },
+    {
+      "source": "backend/pre_import_utils.py",
+      "target": "backend/pre_import_utils.py",
+      "description": "Ajout de la fonction creer_pre_import_sommier() avec support structure renforcée"
+    }
+  ],
+  "compatibility": {
+    "min_version": "3.10.0",
+    "breaking_changes": false
+  },
+  "features": [
+    "Détection structure renforcée sommiers",
+    "Pré-import sommier avec champ renforce_B550",
+    "Support complet accents/casse/pluriel"
+  ]
+}

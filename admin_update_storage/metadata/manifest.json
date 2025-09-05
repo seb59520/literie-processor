@@ -1,0 +1,65 @@
+{
+  "versions": [
+    {
+      "version": "3.10.3",
+      "filename": "matelas_v3.10.3_20250902_164223.zip",
+      "size": 1292977173,
+      "date": "2025-09-02T16:42:43.138855",
+      "description": "Version finale avec système de mise à jour complet et changelog mis à jour",
+      "changelog": "Version 3.10.3 - Version finale du système de mise à jour\n\n🎉 Version finale complète:\n- Système de mise à jour automatique 100% fonctionnel\n- Toutes les corrections de bugs appliquées\n- Changelog complet accessible via Menu Aide\n- Documentation technique complète\n- Tests de validation intégrés\n\n✅ Fonctionnalités validées:\n- Détection automatique des mises à jour\n- Téléchargement sécurisé avec progression\n- Installation robuste avec backup automatique\n- Mise à jour automatique du numéro de version\n- Redémarrage automatique de l'application\n- Préservation des fichiers de configuration\n- Interface d'administration web\n- Gestion d'erreurs complète\n\n🐛 Toutes les corrections appliquées:\n- Bug de backup des répertoires corrigé\n- Gestion robuste des permissions\n- Validation des téléchargements\n- Nettoyage automatique des fichiers temporaires\n- Logs détaillés pour le debugging\n\n📖 Documentation:\n- Changelog détaillé accessible via Menu Aide → Changelog\n- Guide d'utilisation du système de mise à jour\n- Documentation technique de l'API REST\n- Tests automatisés pour validation",
+      "downloads": 0,
+      "type": "minor"
+    },
+    {
+      "version": "3.10.2",
+      "filename": "matelas_v3.10.2_20250902_162919.zip",
+      "size": 1292968912,
+      "date": "2025-09-02T16:29:38.956228",
+      "description": "Correction du bug de sauvegarde des fichiers critiques",
+      "changelog": "Version 3.10.2 - Correction bug backup\n\n🐛 Corrections:\n- Correction du bug [Errno 2] lors de la sauvegarde des fichiers critiques\n- Création automatique des répertoires parents dans le backup\n- Amélioration des logs d'installation avec émojis\n- Gestion robuste des chemins de fichiers\n\n🔧 Améliorations:\n- Logs plus détaillés pendant le processus de sauvegarde\n- Validation de la structure des répertoires avant copie\n- Messages informatifs pour chaque étape\n\n✅ Tests:\n- Test complet du processus de backup et restore\n- Validation avec et sans répertoire config/\n- Gestion des cas d'erreur améliorée",
+      "downloads": 0,
+      "type": "patch"
+    },
+    {
+      "version": "3.10.1",
+      "filename": "matelas_v3.10.1_20250902_160246.zip",
+      "size": 1292964210,
+      "date": "2025-09-02T16:03:05.965228",
+      "description": "Mise à jour automatique du numéro de version après patch",
+      "changelog": "Version 3.10.1 - Mise à jour automatique de version\n\n🆕 Nouvelles fonctionnalités:\n- Mise à jour automatique du fichier version.py après installation du patch\n- Le numéro de version est maintenant correctement affiché après redémarrage\n- Mise à jour automatique de BUILD_DATE et BUILD_NUMBER\n\n🔧 Améliorations:\n- Processus d'installation plus robuste avec logs détaillés\n- Gestion des erreurs améliorée pendant la mise à jour de version\n- Script de test pour valider la mise à jour de version\n\n✅ Tests:\n- Test de mise à jour de version.py\n- Validation complète du processus de patch\n- Vérification du redémarrage automatique",
+      "downloads": 0,
+      "type": "patch"
+    },
+    {
+      "version": "3.10.0",
+      "filename": "matelas_v3.10.0_20250902_120948.zip",
+      "size": 1316394,
+      "date": "2025-09-02T12:09:48.869203",
+      "description": "Mise à jour pour clients v3.9.0",
+      "changelog": "Version 3.10.0 - Compatible avec clients existants",
+      "downloads": 0,
+      "type": "minor"
+    },
+    {
+      "version": "3.7.4",
+      "filename": "matelas_v3.7.4_20250902_115840.zip",
+      "size": 1316351,
+      "date": "2025-09-02T11:58:40.903090",
+      "description": "Test manuel interface admin",
+      "changelog": "Version 3.7.4 créée manuellement",
+      "downloads": 0,
+      "type": "patch"
+    }
+  ],
+  "metadata": {
+    "created": "2025-09-02T11:58:40.903084",
+    "last_update": "2025-09-02T16:42:43.138855",
+    "total_versions": 5
+  },
+  "statistics": {
+    "total_downloads": 0,
+    "storage_used": 3881543040,
+    "total_versions": 5,
+    "active_versions": 5
+  }
+}

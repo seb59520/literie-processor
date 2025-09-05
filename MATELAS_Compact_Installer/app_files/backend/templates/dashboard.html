@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistiques -->
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="fas fa-box"></i> Versions
+                </h5>
+                <h2 id="total-versions">{{ stats.total_versions }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="fas fa-download"></i> Téléchargements
+                </h5>
+                <h2 id="total-downloads">{{ stats.total_downloads }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="fas fa-hdd"></i> Stockage
+                </h5>
+                <h2 id="storage-used">{{ "%.1f"|format(stats.storage_used / 1024 / 1024) }} MB</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="fas fa-clock"></i> Dernière MAJ
+                </h5>
+                <p class="mb-0">{{ last_update_date }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-plus-circle"></i> Nouvelle Version</h5>
+            </div>
+            <div class="card-body">
+                <form action="/admin/create-version" method="POST" class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Type de version</label>
+                        <select name="version_type" class="form-select" required>
+                            <option value="patch">Patch ({{ current_version }} → {{ next_patch }})</option>
+                            <option value="minor">Minor ({{ current_version }} → {{ next_minor }})</option>
+                            <option value="major">Major ({{ current_version }} → {{ next_major }})</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="description" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i> Créer et Publier
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-upload"></i> Upload Manuel</h5>
+            </div>
+            <div class="card-body">
+                <form action="/admin/upload" method="POST" enctype="multipart/form-data">
+                    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-muted"></i>
+                        <p class="mt-3 text-muted">Cliquez pour sélectionner un fichier ZIP</p>
+                        <input type="file" id="fileInput" name="file" accept=".zip" style="display: none;" required>
+                    </div>
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-4">
+                            <input type="text" name="version" class="form-control" placeholder="Version (ex: 3.11.0)" required>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" name="description" class="form-control" placeholder="Description de la version" required>
+                        </div>
+                        <div class="col-12">
+                            <textarea name="changelog" class="form-control" rows="3" placeholder="Changelog (optionnel)"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-upload"></i> Uploader la Version
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des versions -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5><i class="fas fa-list"></i> Versions Disponibles</h5>
+        <span class="badge bg-secondary">{{ versions|length }} versions</span>
+    </div>
+    <div class="card-body">
+        {% if versions %}
+            <div class="row">
+                {% for version in versions %}
+                <div class="col-md-6 mb-3">
+                    <div class="card version-card {{ 'version-latest' if loop.index == 1 else '' }}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">
+                                    {{ version.version }}
+                                    {% if loop.index == 1 %}
+                                        <span class="badge bg-success">Latest</span>
+                                    {% endif %}
+                                </h6>
+                                <small class="text-muted">{{ version.date[:10] }}</small>
+                            </div>
+                            <p class="card-text text-muted">{{ version.description }}</p>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-download"></i> {{ version.downloads }} téléchargements
+                                    <br>
+                                    <i class="fas fa-weight"></i> {{ "%.1f"|format(version.size / 1024 / 1024) }} MB
+                                </small>
+                                <div>
+                                    <button onclick="downloadVersion('{{ version.version }}')" 
+                                            class="btn btn-sm btn-outline-primary btn-action">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <button onclick="deleteVersion('{{ version.version }}')" 
+                                            class="btn btn-sm btn-outline-danger btn-action">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {% if version.changelog %}
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <strong>Changelog:</strong><br>
+                                    {{ version.changelog.replace('
+', '<br>')|safe }}
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-box-open fa-3x"></i>
+                <p class="mt-3">Aucune version disponible</p>
+                <p>Créez votre première version ci-dessus</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

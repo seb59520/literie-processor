@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MATELAS Update Center - Dashboard avec Télémétrie</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 0;
+        }
+        .stats-card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        .version-badge {
+            font-size: 0.8rem;
+        }
+        .telemetry-section {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/admin">
+                <i class="fas fa-satellite-dish me-2"></i>
+                MATELAS Update Center Pro
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/admin/clients">
+                    <i class="fas fa-users me-1"></i>Clients (<span id="clientCount">{{ active_clients }}</span>)
+                </a>
+                <a class="nav-link" href="/admin/upload">
+                    <i class="fas fa-upload me-1"></i>Upload
+                </a>
+                <a class="nav-link" href="/admin/stats">
+                    <i class="fas fa-chart-bar me-1"></i>Stats
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-satellite-dish me-3"></i>
+                Centre d'Administration Pro
+            </h1>
+            <p class="lead">Gérez vos mises à jour et surveillez vos postes clients en temps réel</p>
+        </div>
+    </section>
+
+    <!-- Dashboard -->
+    <div class="container my-5">
+        <!-- Télémétrie Section -->
+        <div class="telemetry-section">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <i class="fas fa-desktop fa-3x mb-2"></i>
+                        <h3>{{ total_clients }}</h3>
+                        <p class="mb-0">Postes Enregistrés</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <i class="fas fa-wifi fa-3x mb-2"></i>
+                        <h3 class="text-success">{{ active_clients }}</h3>
+                        <p class="mb-0">Postes Actifs (24h)</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <i class="fas fa-clock fa-3x mb-2"></i>
+                        <h3 id="lastUpdate">-</h3>
+                        <p class="mb-0">Dernière Connexion</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <a href="/admin/clients" class="btn btn-light btn-lg">
+                            <i class="fas fa-eye me-2"></i>
+                            Voir les Postes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques Principales -->
+        <div class="row mb-5">
+            <div class="col-md-3">
+                <div class="card stats-card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-box fa-3x text-primary mb-3"></i>
+                        <h3 class="card-title">{{ total_versions }}</h3>
+                        <p class="card-text text-muted">Versions Disponibles</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-download fa-3x text-success mb-3"></i>
+                        <h3 class="card-title">{{ total_downloads }}</h3>
+                        <p class="card-text text-muted">Téléchargements Totaux</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-tag fa-3x text-warning mb-3"></i>
+                        <h3 class="card-title">{{ latest_version }}</h3>
+                        <p class="card-text text-muted">Version Actuelle</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                        <h3 class="card-title" id="updateRate">-</h3>
+                        <p class="card-text text-muted">Taux de Mise à Jour</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Rapides -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bolt me-2"></i>
+                            Actions Rapides
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <a href="/admin/upload" class="btn btn-success btn-lg w-100">
+                                    <i class="fas fa-upload me-2"></i>
+                                    Uploader Nouvelle Version
+                                </a>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <a href="/admin/clients" class="btn btn-info btn-lg w-100">
+                                    <i class="fas fa-users me-2"></i>
+                                    Surveiller les Postes
+                                </a>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <a href="/admin/stats" class="btn btn-warning btn-lg w-100">
+                                    <i class="fas fa-chart-line me-2"></i>
+                                    Statistiques Avancées
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des Versions -->
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Versions Disponibles
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if versions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Version</th>
+                                <th>Description</th>
+                                <th>Date de sortie</th>
+                                <th>Téléchargements</th>
+                                <th>Taille</th>
+                                <th>Adoption</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for version in versions %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-primary version-badge">
+                                        v{{ version.version }}
+                                    </span>
+                                </td>
+                                <td>{{ version.description[:50] }}...</td>
+                                <td>{{ version.release_date[:10] }}</td>
+                                <td>
+                                    <span class="badge bg-success">
+                                        {{ version.downloads or 0 }}
+                                    </span>
+                                </td>
+                                <td>{{ "%.1f MB"|format(version.file_size / 1024 / 1024) }}</td>
+                                <td>
+                                    <div class="progress" style="height: 15px;">
+                                        <div class="progress-bar bg-info" style="width: {{ (version.downloads or 0) * 100 / ([total_downloads, 1]|max) }}%">
+                                            {{ "%.0f"|format((version.downloads or 0) * 100 / ([total_downloads, 1]|max)) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="deleteVersion('{{ version.version }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-5x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucune version disponible</h5>
+                    <p class="text-muted">Uploadez votre première version pour commencer</p>
+                    <a href="/admin/upload" class="btn btn-primary">
+                        <i class="fas fa-upload me-2"></i>
+                        Uploader maintenant
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function deleteVersion(version) {
+            if (confirm(`Êtes-vous sûr de vouloir supprimer la version ${version} ?`)) {
+                fetch(`/admin/delete/${version}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Erreur: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Erreur: ' + error);
+                });
+            }
+        }
+        
+        // Actualisation automatique toutes les 30 secondes
+        setInterval(function() {
+            fetch('/api/v1/telemetry/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('clientCount').textContent = data.active_clients || '0';
+                })
+                .catch(error => console.log('Erreur refresh:', error));
+        }, 30000);
+        
+        // Afficher message de succès depuis URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const success = urlParams.get('success');
+        if (success) {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show position-fixed';
+            alert.style.top = '20px';
+            alert.style.right = '20px';
+            alert.style.zIndex = '9999';
+            alert.innerHTML = `
+                ${success}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alert);
+            
+            // Nettoyer l'URL
+            window.history.replaceState({}, document.title, '/admin');
+        }
+    </script>
+</body>
+</html>

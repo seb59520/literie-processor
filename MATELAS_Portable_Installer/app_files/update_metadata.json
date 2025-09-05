@@ -1,0 +1,11 @@
+{
+  "version": "3.10.0",
+  "created_date": "2025-09-02T12:09:48.868525",
+  "package_type": "full_update",
+  "requires_restart": true,
+  "install_instructions": [
+    "Fermer l'application",
+    "Extraire le contenu dans le dossier d'installation",
+    "Red\u00e9marrer l'application"
+  ]
+}

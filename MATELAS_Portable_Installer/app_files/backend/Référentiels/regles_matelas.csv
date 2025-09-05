@@ -1,0 +1,9 @@
+Type de Règle,Champ Source,Pattern,Champ Destination,Type de Transformation,Description
+Recherche Texte,Description,Latex 100% Naturel,Latex,Recherche Texte,Détecte si le matelas est en Latex 100% Naturel
+Recherche Texte,Description,Luxe 3D,Luxe_3D,Recherche Texte,Détecte si le matelas est de type Luxe 3D
+Recherche Texte,Description,Tencel,Tencel,Recherche Texte,Détecte si le matelas est de type Tencel
+Extraction Dimensions,Dimensions (Lxl),(\d{2,3})x(\d{2,3}),Largeur,Extraction Dimensions,Extrait la largeur du matelas
+Extraction Dimensions,Dimensions (Lxl),(\d{2,3})x(\d{2,3}),Longueur,Extraction Dimensions,Extrait la longueur du matelas
+Calcul Dimensions,Dimensions (Lxl),(\d{2,3})x(\d{2,3}),Dimensions_housse,Calcul Dimensions,Calcule les dimensions de la housse
+Copie Directe,ID Document,,ID Document,Copie Directe,Copie l'ID Document
+Copie Directe,Description,,Description,Copie Directe,Copie la description 

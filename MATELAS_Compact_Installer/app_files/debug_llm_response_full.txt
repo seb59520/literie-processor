@@ -1,0 +1,89 @@
+```json
+{
+  "societe": {
+    "nom": "SAS Literie Westelynck",
+    "capital": "23 100 Euros",
+    "adresse": "525 RD 642 - 59190 BORRE",
+    "telephone": "03.28.48.04.19",
+    "email": "contact@lwest.fr",
+    "siret": "429 352 891 00015",
+    "APE": "3103Z",
+    "CEE": "FR50 429 352 891",
+    "banque": "Crédit Agricole d'Hazebrouck",
+    "IBAN": "FR76 1670 6050 1650 4613 2602 341"
+  },
+  "client": {
+    "nom": "Mr et Mme THYOT REGIS & ANNIE",
+    "adresse": "38 CLOS DE LA BRIQUETERIE, 59190 CAESTRE",
+    "code_client": "THYOR"
+  },
+  "commande": {
+    "numero": "CM00009607",
+    "date": "29/07/2025",
+    "date_validite": "",
+    "commercial": "P. ALINE",
+    "origine": "COMMANDE"
+  },
+  "mode_mise_a_disposition": {
+    "emporte_client_C57": "",
+    "fourgon_C58": "",
+    "transporteur_C59": ""
+  },
+  "articles": [
+    {
+      "type": "matelas",
+      "description": "MATELAS MOUSSE MONOZONE HAUTE RÉSILIENCE ET HAUTE DENSITÉ (43kg/ m3) - SELECT43 FERME - HOUSSE MATELASSÉE TENCEL AVEC POIGNÉES OREILLES LAVABLE A 40° - 119/ 198/ 18",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "119x198x18",
+      "noyau": "MOUSSE MONOZONE HAUTE RÉSILIENCE ET HAUTE DENSITÉ (43kg/ m3)",
+      "fermete": "FERME",
+      "housse": "MATELASSÉE",
+      "matiere_housse": "TENCEL",
+      "autres_caracteristiques": {
+        "poignées": "oui",
+        "lavable": "40°"
+      }
+    },
+    {
+      "type": "accessoire",
+      "description": "OREILLER MOUSSE VISCOÉLASTIQUE THERMOSENSIBLE MEDIUM - HOUSSE TENCEL LAVABLE A 40° ERGONOMIQUE 48 CM - Mr (emporté)",
+      "titre_cote": "Mr",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "",
+      "noyau": "MOUSSE VISCOÉLASTIQUE THERMOSENSIBLE",
+      "fermete": "MEDIUM",
+      "housse": "TENCEL",
+      "matiere_housse": "TENCEL",
+      "autres_caracteristiques": {
+        "ergonomique": "48 CM",
+        "lavable": "40°"
+      }
+    },
+    {
+      "type": "accessoire",
+      "description": "PARTICIPATION A LA LIVRAISON ET A L'INSTALLATION + DÉBARRASSER ANCIEN MATELAS",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {}
+    }
+  ],
+  "paiement": {
+    "conditions": "ACOMPTE DE 193.50 € en CB A LA COMMANDE ET SOLDE DE 400 € A LA LIVRAISON (en CB , le client passera en magasin)",
+    "port_ht": 0.00,
+    "base_ht": 489.83,
+    "taux_tva": 20.00,
+    "total_ttc": 593.50,
+    "acompte": 193.50,
+    "net_a_payer": 400.00
+  }
+}
+```

@@ -1,0 +1,5 @@
+{
+  "api_key": "YOUR_NOTION_API_KEY_HERE",
+  "database_id": "YOUR_DATABASE_ID_HERE",
+  "workspace_id": "YOUR_WORKSPACE_ID_HERE"
+}

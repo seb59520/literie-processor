@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques - MATELAS Update Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/admin">
+                <i class="fas fa-download me-2"></i>
+                MATELAS Update Center
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/admin">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+                <a class="nav-link active" href="/admin/stats">
+                    <i class="fas fa-chart-bar me-1"></i>Stats
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div class="container my-5">
+        <h2 class="mb-4">
+            <i class="fas fa-chart-line text-primary me-3"></i>
+            Statistiques Détaillées
+        </h2>
+
+        <!-- Métriques -->
+        <div class="row mb-5">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-download fa-2x text-success mb-2"></i>
+                        <h4>{{ manifest.statistics.total_downloads or 0 }}</h4>
+                        <small class="text-muted">Total Téléchargements</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-box fa-2x text-primary mb-2"></i>
+                        <h4>{{ manifest.versions|length }}</h4>
+                        <small class="text-muted">Versions Disponibles</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-hdd fa-2x text-warning mb-2"></i>
+                        <h4>{{ "%.1f GB"|format((manifest.versions|sum(attribute='file_size') or 0) / 1024 / 1024 / 1024) }}</h4>
+                        <small class="text-muted">Stockage Utilisé</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-calendar fa-2x text-info mb-2"></i>
+                        <h4>{{ manifest.versions|length and manifest.versions[0].release_date[:10] or 'N/A' }}</h4>
+                        <small class="text-muted">Dernière Version</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graphiques -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-pie me-2"></i>Téléchargements par Version</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="downloadsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar me-2"></i>Taille des Versions</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="sizeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau détaillé -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5><i class="fas fa-table me-2"></i>Détails par Version</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Version</th>
+                                <th>Description</th>
+                                <th>Date</th>
+                                <th>Téléchargements</th>
+                                <th>Taille</th>
+                                <th>Popularité</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for version in manifest.versions %}
+                            <tr>
+                                <td><span class="badge bg-primary">v{{ version.version }}</span></td>
+                                <td>{{ version.description[:40] }}...</td>
+                                <td>{{ version.release_date[:10] }}</td>
+                                <td>{{ version.downloads or 0 }}</td>
+                                <td>{{ "%.1f MB"|format(version.file_size / 1024 / 1024) }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" style="width: {{ (version.downloads or 0) * 100 / ([manifest.statistics.total_downloads, 1]|max) }}%">
+                                            {{ "%.1f"|format((version.downloads or 0) * 100 / ([manifest.statistics.total_downloads, 1]|max)) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Données pour les graphiques
+        const versions = {{ manifest.versions|tojson }};
+        const versionLabels = versions.map(v => `v${v.version}`);
+        const downloadData = versions.map(v => v.downloads || 0);
+        const sizeData = versions.map(v => (v.file_size || 0) / 1024 / 1024); // MB
+
+        // Graphique des téléchargements
+        const downloadsCtx = document.getElementById('downloadsChart').getContext('2d');
+        new Chart(downloadsCtx, {
+            type: 'pie',
+            data: {
+                labels: versionLabels,
+                datasets: [{
+                    data: downloadData,
+                    backgroundColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Graphique des tailles
+        const sizeCtx = document.getElementById('sizeChart').getContext('2d');
+        new Chart(sizeCtx, {
+            type: 'bar',
+            data: {
+                labels: versionLabels,
+                datasets: [{
+                    label: 'Taille (MB)',
+                    data: sizeData,
+                    backgroundColor: '#36A2EB'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Taille (MB)'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Version - MATELAS Update Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #0d6efd;
+            background: #e7f3ff;
+        }
+        .upload-icon {
+            font-size: 4rem;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/admin">
+                <i class="fas fa-download me-2"></i>
+                MATELAS Update Center
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/admin">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+                <a class="nav-link active" href="/admin/upload">
+                    <i class="fas fa-upload me-1"></i>Upload
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="mb-4">
+                    <i class="fas fa-upload text-primary me-3"></i>
+                    Uploader Nouvelle Version
+                </h2>
+                <p class="text-muted">
+                    Glissez-déposez votre fichier ZIP ou utilisez le formulaire ci-dessous
+                </p>
+            </div>
+        </div>
+
+        <!-- Formulaire d'Upload -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <form id="uploadForm" action="/admin/upload" method="post" enctype="multipart/form-data">
+                            <!-- Zone de Drop -->
+                            <div class="upload-area mb-4" id="uploadArea">
+                                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                                <h5>Glissez votre fichier ZIP ici</h5>
+                                <p class="text-muted mb-3">ou cliquez pour sélectionner</p>
+                                <input type="file" class="form-control d-none" name="file" id="fileInput" accept=".zip" required>
+                                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-folder-open me-2"></i>
+                                    Choisir un fichier
+                                </button>
+                            </div>
+
+                            <!-- Informations sur le fichier -->
+                            <div id="fileInfo" class="d-none mb-4">
+                                <div class="alert alert-success">
+                                    <i class="fas fa-file-archive me-2"></i>
+                                    <span id="fileName"></span> - <span id="fileSize"></span>
+                                </div>
+                            </div>
+
+                            <!-- Métadonnées -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="version" class="form-label">
+                                            <i class="fas fa-tag me-2"></i>Version *
+                                        </label>
+                                        <input type="text" class="form-control" name="version" id="version" 
+                                               placeholder="ex: 3.10.4" pattern="\d+\.\d+\.\d+" required>
+                                        <div class="form-text">Format: MAJOR.MINOR.PATCH (ex: 3.10.4)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="description" class="form-label">
+                                            <i class="fas fa-info-circle me-2"></i>Description
+                                        </label>
+                                        <input type="text" class="form-control" name="description" id="description" 
+                                               placeholder="ex: Correction bugs interface">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="changelog" class="form-label">
+                                    <i class="fas fa-list me-2"></i>Changelog
+                                </label>
+                                <textarea class="form-control" name="changelog" id="changelog" rows="4" 
+                                          placeholder="Décrivez les changements apportés dans cette version..."></textarea>
+                            </div>
+
+                            <!-- Boutons d'action -->
+                            <div class="d-flex justify-content-between">
+                                <a href="/admin" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Retour
+                                </a>
+                                <button type="submit" class="btn btn-primary" id="submitBtn">
+                                    <i class="fas fa-upload me-2"></i>Uploader Version
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-8">
+                <div class="progress d-none" id="progressBar">
+                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const progressBar = document.getElementById('progressBar');
+
+        // Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        });
+
+        uploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0 && files[0].name.endsWith('.zip')) {
+                fileInput.files = files;
+                showFileInfo(files[0]);
+            }
+        }
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                showFileInfo(e.target.files[0]);
+            }
+        });
+
+        function showFileInfo(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('d-none');
+            
+            // Auto-détecter la version depuis le nom du fichier
+            const versionMatch = file.name.match(/v?(\d+\.\d+\.\d+)/);
+            if (versionMatch) {
+                document.getElementById('version').value = versionMatch[1];
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Gérer la soumission du formulaire
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!fileInput.files.length) {
+                alert('Veuillez sélectionner un fichier ZIP');
+                return;
+            }
+
+            if (!fileInput.files[0].name.endsWith('.zip')) {
+                alert('Le fichier doit être un ZIP');
+                return;
+            }
+
+            const formData = new FormData(form);
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Upload en cours...';
+            progressBar.classList.remove('d-none');
+            
+            fetch('/admin/upload', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .catch(error => {
+                alert('Erreur: ' + error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Uploader Version';
+                progressBar.classList.add('d-none');
+            });
+        });
+    </script>
+</body>
+</html>

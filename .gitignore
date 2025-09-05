@@ -1,0 +1,133 @@
+# Fichiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Environnements virtuels
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Fichiers temporaires
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Fichiers de test
+test_*.html
+rapport_*.html
+*_test.*
+
+# Fichiers de configuration sensibles
+# Note: matelas_config.json est gardé comme template
+# mais masquez les clés API réelles
+*_private.json
+*_secret.json
+
+# Fichiers de sortie
+output/
+resultats_excel/
+exports/
+rapports/
+
+# Fichiers de compilation Windows
+version_info.txt
+matelas_processor.spec
+
+# Cache
+.cache/
+*.cache
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Documentation générée
+docs/_build/
+
+# Base de données
+*.db
+*.sqlite
+*.sqlite3
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+# Fichiers de configuration avec clés API
+matelas_config.json.backup*
+*.key
+*.pem
+
+# Fichiers de développement
+test_*.py
+debug_*.py
+diagnostic_*.py
+clean_*.py
+fix_*.py
+verifier_*.py
+
+# Dossiers de développement
+tests/
+build_scripts/
+patches/
+backups/
+
+# Exemples et commandes
+Commandes/
+exemples/
+
+# Patches et backups
+patches/
+*.backup*
+*.bak

@@ -1,0 +1,81 @@
+{
+  "versions": [
+    {
+      "version": "3.11.11",
+      "filename": "matelas_v3.11.11_20250902_220837.zip",
+      "description": "Corrections des problèmes de mise à jour",
+      "changelog": "🔧 Corrections des problèmes de mise à jour:\\n- Erreur 500 corrigée: Résolution du problème de téléchargement depuis le serveur distant\\n- Interface de mise à jour améliorée: Fenêtre plus visible avec styles CSS modernes\\n- Serveur robuste: Correction du chemin de téléchargement des packages\\n- Visibilité optimisée: Suppression de la transparence problématique des dialogs\\n\\n✨ Améliorations visuelles:\\n- Dialog stylé: Bordure bleue, fond opaque, boutons modernes\\n- Contraste amélioré: Texte plus lisible, couleurs professionnelles\\n- Expérience utilisateur: Interface plus claire et professionnelle\\n\\n🎯 Cette version corrige:\\n- L'erreur 500 lors du téléchargement des mises à jour\\n- Le problème de transparence de la fenêtre de mise à jour\\n- L'apparence générale de l'interface de mise à jour\\n- La stabilité du processus de téléchargement",
+      "file_size": 135259,
+      "release_date": "2025-09-02T22:08:37.194463",
+      "downloads": 2,
+      "bug_fixes": true
+    },
+    {
+      "version": "3.11.10",
+      "filename": "matelas_v3.11.10_20250902_215645.zip",
+      "description": "Version de test pour mise à jour automatique",
+      "changelog": "🧪 Version de test:\\n- Test du système de mise à jour automatique à distance\\n- Validation de la télémétrie et remontée d'informations client\\n- Vérification de l'indicateur de mise à jour en conditions réelles\\n- Test de la distribution et du processus complet de déploiement\\n\\n🔧 Améliorations techniques:\\n- Système de mise à jour: Validation complète du cycle de vie\\n- Interface utilisateur: Test de l'indicateur en conditions réelles\\n- Serveur de distribution: Vérification de la robustesse du système\\n\\n✨ Cette version permet de tester:\\n- La détection automatique de nouvelles versions\\n- L'affichage correct dans l'indicateur de statut\\n- Le téléchargement et l'installation depuis le serveur distant\\n- La préservation des configurations utilisateur",
+      "file_size": 134782,
+      "release_date": "2025-09-02T21:56:45.886803",
+      "downloads": 1,
+      "test_version": true
+    },
+    {
+      "version": "3.11.9",
+      "filename": "matelas_v3.11.9_20250902_214252.zip",
+      "description": "Correction finale de l'indicateur de mise à jour",
+      "changelog": "🔧 Corrections majeures:\\n- Résolution du problème d'affichage de l'indicateur de mise à jour\\n- Implémentation d'un système de récréation automatique des widgets Qt\\n- Correction des dialogues de mise à jour\\n- Amélioration de la stabilité de l'interface\\n\\n✨ Améliorations:\\n- Auto-détection et recréation des widgets détruits\\n- Gestion robuste du cycle de vie des composants Qt\\n- Interface de mise à jour plus stable et fiable",
+      "file_size": 132916,
+      "release_date": "2025-09-02T21:42:52.620671",
+      "downloads": 0
+    },
+    {
+      "version": "3.11.6",
+      "filename": "matelas_v3.11.6_20250902_212843.zip",
+      "description": "Modification indicateur",
+      "changelog": "Changement de l'ordre d'affichage",
+      "file_size": 97708,
+      "release_date": "2025-09-02T21:28:43.982197",
+      "downloads": 0
+    },
+    {
+      "version": "3.11.3",
+      "filename": "matelas_v3.11.3_20250902_211908.zip",
+      "description": "Test indicateur mise à jour",
+      "changelog": "",
+      "file_size": 97657,
+      "release_date": "2025-09-02T21:19:08.536202",
+      "downloads": 0
+    },
+    {
+      "version": "3.11.2",
+      "filename": "matelas_v3.11.2_20250902_210420.zip",
+      "description": "Correction des onglets colorés avec CSS simplifié",
+      "changelog": " Onglets avec couleurs distinctives\\r\\n    - Emojis pour identification rapide\\r\\n    - Interface modernisée et fonctionnelle",
+      "file_size": 123391,
+      "release_date": "2025-09-02T21:04:20.915003",
+      "downloads": 1
+    },
+    {
+      "version": "3.11.1",
+      "filename": "matelas_v3.11.1_20250902_205423.zip",
+      "description": "Modernisation de l'interface",
+      "changelog": "  1. 🎨 Onglets colorés modernes :\\r\\n    - 🔵 Résumé - Bleu clair pour la vue d'ensemble\\r\\n    - 🟣 Configurations - Violet clair pour les paramètres\\r\\n    - 🟢 Pré-import - Vert clair pour la préparation\\r\\n    - 🟠 Logs - Orange clair pour le monitoring\\r\\n    - 🩷 Debug - Rose clair pour le débogage\\r\\n    - 🟡 JSON/Excel - Couleurs spécialisées pour les données\\r\\n  2. ✨ Effets visuels avancés :\\r\\n    - Dégradés CSS modernes\\r\\n    - Effets de survol interactifs\\r\\n    - Bordures colorées pour l'onglet sélectionné\\r\\n    - Transitions fluides\\r\\n  3. 🔧 Code technique :\\r\\n    - Méthodes darken_color() et lighten_color()\\r\\n    - Style CSS avec qlineargradient\\r\\n    - Application automatique des couleurs\\r\\n",
+      "file_size": 122690,
+      "release_date": "2025-09-02T20:54:23.566615",
+      "downloads": 0
+    },
+    {
+      "version": "3.11.0",
+      "filename": "matelas_v3.11.0_20250902_185748.zip",
+      "description": "Système de télémétrie des postes clients avec interface d'administration avancée",
+      "changelog": "🆕 Nouvelles fonctionnalités télémétrie:\\n- Système de télémétrie des postes clients\\n- Interface d'administration avancée  \\n- Monitoring en temps réel\\n- Statistiques globales (OS, versions, clients actifs)\\n\\n🔧 API et interface:\\n- Endpoint /api/v1/clients/{client_id}/details\\n- Page /admin/clients pour visualiser tous les postes\\n- Filtres avancés par nom, statut, version\\n- Dashboard avec cartes clients détaillées",
+      "file_size": 128031,
+      "release_date": "2025-09-02T18:57:48.875542",
+      "downloads": 0
+    }
+  ],
+  "statistics": {
+    "total_downloads": 4
+  }
+}
