@@ -98,6 +98,23 @@ except ImportError as e:
     print(f"⚠️ Système de mise à jour non disponible: {e}")
     AUTO_UPDATE_AVAILABLE = False
 
+# Import du générateur de packages correctifs
+try:
+    from package_builder_gui import show_package_builder_dialog
+    from auto_package_gui import show_auto_package_dialog
+    from package_consolidator import create_consolidation_gui
+    PACKAGE_BUILDER_AVAILABLE = True
+    AUTO_PACKAGE_AVAILABLE = True
+    CONSOLIDATION_GUI = create_consolidation_gui()
+    print("✅ Générateur de packages correctifs chargé")
+    print("✅ Générateur automatique de packages chargé")
+    print("✅ Consolidateur de packages chargé")
+except ImportError as e:
+    print(f"⚠️ Générateur de packages non disponible: {e}")
+    PACKAGE_BUILDER_AVAILABLE = False
+    AUTO_PACKAGE_AVAILABLE = False
+    CONSOLIDATION_GUI = None
+
 # Import du validateur de fichiers optimisé
 if UI_OPTIMIZATIONS_AVAILABLE:
     try:
@@ -3238,6 +3255,26 @@ INTERFACE:
         logs_action.setStatusTip('Afficher les logs et rapports')
         # logs_action.triggered.connect(self.show_logs_dialog)  # À implémenter si besoin
         diag_menu.addAction(logs_action)
+        diag_menu.addSeparator()
+        
+        # Générateur de packages correctifs
+        package_builder_action = QAction('📦 Créer Package Correctif…', self)
+        package_builder_action.setStatusTip('Créer un package de mise à jour corrective (accès développeur)')
+        package_builder_action.triggered.connect(self.show_package_builder_dialog)
+        diag_menu.addAction(package_builder_action)
+        
+        # Générateur automatique de packages
+        auto_package_action = QAction('🤖 Suggestions Automatiques…', self)
+        auto_package_action.setStatusTip('Analyser les modifications et suggérer des packages correctifs')
+        auto_package_action.triggered.connect(self.show_auto_package_dialog)
+        diag_menu.addAction(auto_package_action)
+        
+        # Consolidation et upload
+        diag_menu.addSeparator()
+        consolidation_action = QAction('📤 Consolidation & Upload VPS…', self)
+        consolidation_action.setStatusTip('Regrouper et uploader les packages vers le VPS')
+        consolidation_action.triggered.connect(self.show_consolidation_dialog)
+        diag_menu.addAction(consolidation_action)
 
         # --- Menu Documentation & Aide ---
         help_menu = menubar.addMenu('Documentation & Aide')
@@ -7661,7 +7698,7 @@ INTERFACE:
             
             print("🔍 DEBUG: Vérification des mises à jour en cours...")
             # Vérifier les mises à jour sur le serveur
-            update_info = check_for_updates_with_telemetry("https://edceecf7fdaf.ngrok-free.app")
+            update_info = check_for_updates_with_telemetry("http://72.60.47.183")
             print(f"🔍 DEBUG: Résultat update_info: available={getattr(update_info, 'available', None)}")
             
             # Vérifier encore une fois que l'indicateur existe
@@ -8031,6 +8068,70 @@ INTERFACE:
         """Affiche le dialogue de coût OpenRouter"""
         dialog = CostDialog(self)
         dialog.exec()
+    
+    def show_package_builder_dialog(self):
+        """Affiche le générateur de packages correctifs"""
+        if not PACKAGE_BUILDER_AVAILABLE:
+            QMessageBox.warning(
+                self, 
+                "Fonctionnalité non disponible", 
+                "Le générateur de packages correctifs n'est pas disponible.\n"
+                "Vérifiez que le module package_builder_gui.py est présent."
+            )
+            return
+        
+        try:
+            # Afficher le générateur de packages avec authentification
+            show_package_builder_dialog(self)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur",
+                f"Erreur lors de l'ouverture du générateur de packages:\n{str(e)}"
+            )
+    
+    def show_auto_package_dialog(self):
+        """Affiche le générateur automatique de packages"""
+        if not AUTO_PACKAGE_AVAILABLE:
+            QMessageBox.warning(
+                self, 
+                "Fonctionnalité non disponible", 
+                "Le générateur automatique de packages n'est pas disponible.\n"
+                "Vérifiez que les modules auto_package_*.py sont présents."
+            )
+            return
+        
+        try:
+            # Afficher l'interface de suggestions automatiques
+            show_auto_package_dialog(self)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur",
+                f"Erreur lors de l'ouverture du générateur automatique:\n{str(e)}"
+            )
+    
+    def show_consolidation_dialog(self):
+        """Affiche le dialogue de consolidation et upload"""
+        if not CONSOLIDATION_GUI:
+            QMessageBox.warning(
+                self, 
+                "Fonctionnalité non disponible", 
+                "Le système de consolidation n'est pas disponible.\n"
+                "Vérifiez que PyQt6 et paramiko sont installés."
+            )
+            return
+        
+        try:
+            # Afficher l'interface de consolidation
+            dialog = CONSOLIDATION_GUI(self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur",
+                f"Erreur lors de l'ouverture du consolidateur:\n{str(e)}"
+            )
     
     def show_server_url_dialog(self):
         """Affiche le dialogue de configuration de l'URL du serveur"""

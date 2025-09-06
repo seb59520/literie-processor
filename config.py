@@ -134,7 +134,7 @@ class Config:
 
     def get_server_url(self):
         """URL du serveur de mise à jour/backend (ex: https://example.ngrok.io)"""
-        return self.config.get('server_url', 'http://localhost:8080')
+        return self.config.get('server_url', 'http://72.60.47.183/')
 
     def set_server_url(self, url: str):
         url = (url or '').strip()

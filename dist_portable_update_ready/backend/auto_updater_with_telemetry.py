@@ -110,7 +110,7 @@ class TelemetryUpdateChecker(QThread):
     no_update = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, server_url="http://localhost:8090"):
+    def __init__(self, server_url="http://72.60.47.183"):
         super().__init__()
         self.server_url = server_url
     
@@ -548,7 +548,7 @@ class InstallThread(QThread):
         except Exception:
             pass
 
-def check_for_updates_with_telemetry(server_url="http://localhost:8090") -> Optional[TelemetryUpdateInfo]:
+def check_for_updates_with_telemetry(server_url="http://72.60.47.183") -> Optional[TelemetryUpdateInfo]:
     """Vérifier les mises à jour avec télémétrie (version synchrone)"""
     try:
         info = TelemetryUpdateInfo()
@@ -590,7 +590,7 @@ def check_for_updates_with_telemetry(server_url="http://localhost:8090") -> Opti
         print(f"Erreur vérification mise à jour: {e}")
         return None
 
-def show_update_dialog_with_telemetry(server_url="http://localhost:8090"):
+def show_update_dialog_with_telemetry(server_url="http://72.60.47.183"):
     """Afficher le dialog de mise à jour avec télémétrie"""
     try:
         # Vérifier les mises à jour
@@ -618,11 +618,11 @@ UpdateDialog = TelemetryUpdateDialog
 UpdateChecker = TelemetryUpdateChecker
 
 # Fonctions principales
-def check_for_updates(server_url="http://localhost:8090"):
+def check_for_updates(server_url="http://72.60.47.183"):
     """Fonction de compatibilité"""
     return check_for_updates_with_telemetry(server_url)
 
-def show_update_dialog(server_url="http://localhost:8090"):
+def show_update_dialog(server_url="http://72.60.47.183"):
     """Fonction de compatibilité"""
     return show_update_dialog_with_telemetry(server_url)
 

@@ -1,83 +1,125 @@
-# MatelasProcessor v3.11.9 - Version Portable
+# MATELAS Application Portable v3.11.12
 
-## 🚀 Lancement rapide
+## 🚀 Installation Rapide
 
-### Windows
-Double-cliquez sur `lancer_matelas.bat`
+### Prérequis
+- Python 3.8+
+- Connexion Internet (pour l'installation des dépendances)
 
-### Linux/Mac
+### Installation Automatique
 ```bash
-./lancer_matelas.sh
+python3 install.py
 ```
 
-## 📡 Système de mise à jour automatique
+### Installation Manuelle
+```bash
+pip install PyQt6 requests PyMuPDF openpyxl paramiko cryptography
+python3 app_gui.py
+```
 
-Cette version inclut un système de mise à jour automatique qui :
-
-✅ **Vérifie automatiquement** les nouvelles versions
-✅ **Affiche un indicateur** dans la barre de statut
-✅ **Propose le téléchargement** des mises à jour
-✅ **Préserve vos configurations** lors des mises à jour
-
-### Fonctionnement
-
-- 🔍 **Vérification** : Toutes les 24h + au démarrage
-- 📊 **Indicateur** : Visible en bas à droite de l'application
-- 🎯 **Cliquable** : Cliquez sur l'indicateur pour voir les détails
-- 🔒 **Sécurisé** : Téléchargement depuis serveur officiel
-
-### États de l'indicateur
-
-- 🔄 **Bleu** : Vérification en cours
-- ✅ **Vert** : Application à jour
-- 🆕 **Rouge** : Nouvelle version disponible
-- ⚠️ **Gris** : Erreur de connexion
-
-## 📁 Structure
+## 📁 Structure du Projet
 
 ```
-MatelasProcessor/
-├── app_gui.py              # Application principale
-├── backend/                # Logique métier
-├── config/                 # Configurations
-├── template/               # Templates Excel
-├── update_config.json      # Configuration mise à jour
-├── lancer_matelas.bat      # Lanceur Windows
-├── lancer_matelas.sh       # Lanceur Linux/Mac
-└── README.md              # Ce fichier
+MATELAS_PORTABLE/
+├── app_gui.py                    # Application principale
+├── install.py                    # Script d'installation
+├── config.py                     # Configuration système
+├── version.py                     # Gestion des versions
+├── package_builder.py            # Générateur de packages
+├── package_builder_gui.py        # Interface générateur manuel
+├── auto_package_generator.py     # Générateur automatique
+├── auto_package_gui.py          # Interface générateur auto
+├── package_consolidator.py      # Consolidateur de packages
+├── backend/                     # Modules de traitement
+├── config/                      # Configurations
+├── template/                    # Templates Excel
+└── consolidated_packages/       # Packages consolidés
 ```
+
+## 🎯 Nouvelles Fonctionnalités v3.11.12
+
+### 📦 Générateur de Packages Correctifs
+- **Création manuelle** : Menu Diagnostic → Créer Package Correctif
+- **Suggestions automatiques** : Menu Diagnostic → Suggestions Automatiques
+- **Consolidation** : Menu Diagnostic → Consolidation & Upload VPS
+- **Protection** : Accès protégé par mot de passe développeur
+
+### 🌐 Configuration Serveur
+- **VPS intégré** : Serveur de mise à jour sur VPS dédié
+- **Upload automatique** : Envoi des packages vers le serveur
+- **Configuration** : Menu Configuration → Configuration Serveur
 
 ## 🔧 Configuration
 
-Le fichier `update_config.json` permet de configurer :
+### Premier Lancement
+1. Lancer `python3 app_gui.py`
+2. Configurer les clés API (Menu Configuration)
+3. Vérifier l'URL du serveur (72.60.47.183)
+4. Tester avec un PDF exemple
 
-- **Activation/désactivation** des mises à jour automatiques
-- **Fréquence** de vérification
-- **Serveur** de mise à jour
-- **Notifications**
+### URLs et Serveurs
+- **Serveur principal** : http://72.60.47.183/
+- **Interface admin** : http://72.60.47.183/admin
+- **API** : http://72.60.47.183/api/v1/
 
-## 🆘 Dépannage
+## 🛠️ Outils Développeur
 
-### L'application ne démarre pas
-1. Vérifiez que Python 3.8+ est installé
-2. Lancez `pip install -r requirements_gui.txt`
-3. Utilisez les scripts de lancement fournis
+### Générateur de Packages
+- **Mot de passe** : `matelas_dev_2025`
+- **Packages manuels** : Sélection de fichiers personnalisée
+- **Packages automatiques** : Détection des modifications récentes
+- **Consolidation** : Fusion de packages par version
 
-### L'indicateur de mise à jour ne s'affiche pas
-1. Vérifiez votre connexion Internet
-2. L'indicateur apparaît en bas à droite après quelques secondes
-3. Redémarrez l'application si nécessaire
+### Types de Packages Détectés
+- 🖥️ **Interface** : Modifications GUI et interfaces
+- ⚙️ **Backend** : Utilitaires et traitement
+- 📋 **Configuration** : Paramètres système
+- 🛠️ **Scripts** : Outils et utilitaires
+- 📊 **Référentiels** : Données métier
+- 📄 **Templates** : Modèles Excel
 
-### Erreur de mise à jour
-1. Vérifiez votre connexion Internet
-2. L'application fonctionne normalement même sans mise à jour
-3. Vous pouvez désactiver les mises à jour dans `update_config.json`
+## 🚨 Dépannage
 
-## 📞 Support
+### Problèmes Courants
+- **Erreur PyQt6** : `pip install --upgrade PyQt6`
+- **Connexion serveur** : Vérifier l'URL dans Configuration
+- **Permissions** : Exécuter en tant qu'administrateur si nécessaire
+- **Dépendances** : Relancer `python3 install.py`
 
-- Version : 3.11.9
-- Build : 2025-09-02
-- Type : Portable avec mise à jour automatique
+### Logs
+Les logs sont dans le répertoire `logs/` :
+- `app.log` : Log principal de l'application
+- `errors.log` : Erreurs système
+- `processing.log` : Traitement des PDFs
 
----
-🎯 **Conseil** : Gardez l'application à jour pour bénéficier des dernières améliorations !
+### Support
+- Consulter les logs en cas de problème
+- Vérifier la configuration réseau
+- Tester avec un PDF simple d'abord
+
+## 📋 Changelog v3.11.12
+
+### ⚙️ Backend/Traitement
+- Améliorations des utilitaires de traitement
+- Optimisations des performances
+- Corrections de bugs système
+
+### 📋 Configuration  
+- Mise à jour des paramètres système
+- Correction des URLs de serveur
+- Optimisation des configurations LLM
+
+### 🖥️ Interface Utilisateur
+- Nouvelles fonctionnalités GUI
+- Générateur de packages correctifs
+- Améliorations ergonomiques
+
+### 🛠️ Scripts/Utilitaires
+- Nouveaux outils de maintenance
+- Scripts d'automatisation
+- Utilitaires de diagnostic
+
+## 📞 Contact
+- Documentation complète dans l'application
+- Aide contextuelle via F1
+- Support technique via les logs système

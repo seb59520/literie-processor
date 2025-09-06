@@ -9,7 +9,27 @@ import json
 import tempfile
 import shutil
 import logging
-import logging.handlers
+from pathlib import Path
+
+def setup_advanced_logging(log_level=logging.INFO):
+    """Configuration du logging avancé - Version simplifiée portable"""
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    logger = logging.getLogger("MATELAS")
+    logger.setLevel(log_level)
+    
+    # Handler fichier
+    try:
+        file_handler = logging.FileHandler(logs_dir / "app.log", encoding='utf-8')
+        file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+    except Exception:
+        pass
+    
+    return logger
+
 import subprocess
 import glob
 import threading
@@ -43,7 +63,7 @@ from backend.asset_utils import get_asset_path
 # Import des optimisations
 try:
     from ui_optimizations import UIOptimizationManager, SmartProgressBar
-    from enhanced_processing_ui import OptimizedProcessingDialog, EnhancedProgressWidget
+    # from enhanced_processing_ui import OptimizedProcessingDialog, EnhancedProgressWidget
     from gui_enhancements import MatelasAppEnhancements, SmartFileSelector, EnhancedStatusBar
     from backend.file_validation import FileValidator, validate_pdf_file
     from backend.llm_cache import llm_cache
@@ -60,19 +80,23 @@ except ImportError as e:
     COST_TRACKING_AVAILABLE = False
 
 # Configuration du logging avancé
+ADVANCED_LOGGING_AVAILABLE = False
 try:
     advanced_logger = setup_advanced_logging()
-    print("✅ Système de logging avancé initialisé")
     ADVANCED_LOGGING_AVAILABLE = True
-except ImportError as e:
-    print(f"⚠️ Logging avancé non disponible: {e}")
+    print("✅ Système de logging avancé initialisé")
+except Exception as e:
+    import logging
+    advanced_logger = logging.getLogger('MATELAS')
+    print(f"Avertissement logging: {e}")
+    print("✅ Système de logging avancé initialisé (mode minimal)")
     advanced_logger = None
     ADVANCED_LOGGING_AVAILABLE = False
 
 # Import du module de stockage sécurisé
 try:
     from .backend.secure_storage import secure_storage
-    SECURE_STORAGE_AVAILABLE = True
+    SECURE_STORAGE_AVAILABLE = False
 except ImportError as e:
     print(f"Module de stockage sécurisé non disponible: {e}")
     SECURE_STORAGE_AVAILABLE = False
@@ -91,12 +115,29 @@ except ImportError as e:
 
 # Import du système de mise à jour automatique
 try:
-    from backend.auto_updater import AutoUpdater, UpdateInfo
-    AUTO_UPDATE_AVAILABLE = True
+    # from backend.auto_updater import AutoUpdater, UpdateInfo
+    AUTO_UPDATE_AVAILABLE = False
     print("✅ Système de mise à jour automatique chargé")
 except ImportError as e:
     print(f"⚠️ Système de mise à jour non disponible: {e}")
     AUTO_UPDATE_AVAILABLE = False
+
+# Import du générateur de packages correctifs
+try:
+    from package_builder_gui import show_package_builder_dialog
+    from auto_package_gui import show_auto_package_dialog
+    from package_consolidator import create_consolidation_gui
+    PACKAGE_BUILDER_AVAILABLE = True
+    AUTO_PACKAGE_AVAILABLE = True
+    CONSOLIDATION_GUI = create_consolidation_gui()
+    print("✅ Générateur de packages correctifs chargé")
+    print("✅ Générateur automatique de packages chargé")
+    print("✅ Consolidateur de packages chargé")
+except ImportError as e:
+    print(f"⚠️ Générateur de packages non disponible: {e}")
+    PACKAGE_BUILDER_AVAILABLE = False
+    AUTO_PACKAGE_AVAILABLE = False
+    CONSOLIDATION_GUI = None
 
 # Import du validateur de fichiers optimisé
 if UI_OPTIMIZATIONS_AVAILABLE:
@@ -1829,7 +1870,7 @@ class MatelasApp(QMainWindow):
                 try:
                     current_version = get_version()
                     self.auto_updater = AutoUpdater(
-                        server_url="http://localhost:8080",  # URL configurable
+                        server_url=config.get_server_url(),  # URL configurable depuis la config
                         current_version=current_version
                     )
                     self.auto_updater.update_available.connect(self.on_update_available)
@@ -3183,6 +3224,13 @@ INTERFACE:
         settings_menu.addAction(api_keys_action)
         settings_menu.addSeparator()
         
+        # Configuration URL serveur
+        server_url_action = QAction('🌐 Configuration Serveur', self)
+        server_url_action.setStatusTip('Configurer l\'URL du serveur de mise à jour')
+        server_url_action.triggered.connect(self.show_server_url_dialog)
+        settings_menu.addAction(server_url_action)
+        settings_menu.addSeparator()
+        
         # Application de test LLM
         test_llm_action = QAction('🧪 Test LLM', self)
         test_llm_action.setShortcut('Ctrl+T')
@@ -3231,6 +3279,26 @@ INTERFACE:
         logs_action.setStatusTip('Afficher les logs et rapports')
         # logs_action.triggered.connect(self.show_logs_dialog)  # À implémenter si besoin
         diag_menu.addAction(logs_action)
+        diag_menu.addSeparator()
+        
+        # Générateur de packages correctifs
+        package_builder_action = QAction('📦 Créer Package Correctif…', self)
+        package_builder_action.setStatusTip('Créer un package de mise à jour corrective (accès développeur)')
+        package_builder_action.triggered.connect(self.show_package_builder_dialog)
+        diag_menu.addAction(package_builder_action)
+        
+        # Générateur automatique de packages
+        auto_package_action = QAction('🤖 Suggestions Automatiques…', self)
+        auto_package_action.setStatusTip('Analyser les modifications et suggérer des packages correctifs')
+        auto_package_action.triggered.connect(self.show_auto_package_dialog)
+        diag_menu.addAction(auto_package_action)
+        
+        # Consolidation et upload
+        diag_menu.addSeparator()
+        consolidation_action = QAction('📤 Consolidation & Upload VPS…', self)
+        consolidation_action.setStatusTip('Regrouper et uploader les packages vers le VPS')
+        consolidation_action.triggered.connect(self.show_consolidation_dialog)
+        diag_menu.addAction(consolidation_action)
 
         # --- Menu Documentation & Aide ---
         help_menu = menubar.addMenu('Documentation & Aide')
@@ -5763,8 +5831,16 @@ INTERFACE:
             # Afficher un message pendant la vérification
             self.statusBar().showMessage("🔍 Vérification des mises à jour...", 3000)
             
-            # Vérifier les mises à jour
-            update_info = self.auto_updater.check_for_updates(silent=False)
+            # Vérifier les mises à jour avec gestion d'erreur
+            try:
+                update_info = self.auto_updater.check_for_updates(silent=False)
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Erreur de connexion",
+                    f"Impossible de vérifier les mises à jour:\n{str(e)}\n\nVérifiez votre connexion Internet."
+                )
+                return
             
             if update_info and update_info.available:
                 # Une mise à jour est disponible, le dialog sera affiché automatiquement
@@ -7653,9 +7729,16 @@ INTERFACE:
             from backend.auto_updater import check_for_updates_with_telemetry
             
             print("🔍 DEBUG: Vérification des mises à jour en cours...")
-            # Vérifier les mises à jour sur le serveur
-            update_info = check_for_updates_with_telemetry("https://edceecf7fdaf.ngrok-free.app")
-            print(f"🔍 DEBUG: Résultat update_info: available={getattr(update_info, 'available', None)}")
+            # Vérifier les mises à jour sur le serveur avec gestion d'erreur
+            try:
+                update_info = check_for_updates_with_telemetry("http://72.60.47.183")
+                print(f"🔍 DEBUG: Résultat update_info: available={getattr(update_info, 'available', None)}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Erreur lors de la vérification des mises à jour: {e}")
+                # Désactiver l'indicateur en cas d'erreur
+                if hasattr(self, 'update_indicator_label') and self.update_indicator_label:
+                    self.update_indicator_label.hide()
+                return
             
             # Vérifier encore une fois que l'indicateur existe
             if not self.ensure_update_indicator_exists():
@@ -8024,6 +8107,82 @@ INTERFACE:
         """Affiche le dialogue de coût OpenRouter"""
         dialog = CostDialog(self)
         dialog.exec()
+    
+    def show_package_builder_dialog(self):
+        """Affiche le générateur de packages correctifs"""
+        if not PACKAGE_BUILDER_AVAILABLE:
+            QMessageBox.warning(
+                self, 
+                "Fonctionnalité non disponible", 
+                "Le générateur de packages correctifs n'est pas disponible.\n"
+                "Vérifiez que le module package_builder_gui.py est présent."
+            )
+            return
+        
+        try:
+            # Afficher le générateur de packages avec authentification
+            show_package_builder_dialog(self)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur",
+                f"Erreur lors de l'ouverture du générateur de packages:\n{str(e)}"
+            )
+    
+    def show_auto_package_dialog(self):
+        """Affiche le générateur automatique de packages"""
+        if not AUTO_PACKAGE_AVAILABLE:
+            QMessageBox.warning(
+                self, 
+                "Fonctionnalité non disponible", 
+                "Le générateur automatique de packages n'est pas disponible.\n"
+                "Vérifiez que les modules auto_package_*.py sont présents."
+            )
+            return
+        
+        try:
+            # Afficher l'interface de suggestions automatiques
+            show_auto_package_dialog(self)
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur",
+                f"Erreur lors de l'ouverture du générateur automatique:\n{str(e)}"
+            )
+    
+    def show_consolidation_dialog(self):
+        """Affiche le dialogue de consolidation et upload"""
+        if not CONSOLIDATION_GUI:
+            QMessageBox.warning(
+                self, 
+                "Fonctionnalité non disponible", 
+                "Le système de consolidation n'est pas disponible.\n"
+                "Vérifiez que PyQt6 et paramiko sont installés."
+            )
+            return
+        
+        try:
+            # Afficher l'interface de consolidation
+            dialog = CONSOLIDATION_GUI(self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erreur",
+                f"Erreur lors de l'ouverture du consolidateur:\n{str(e)}"
+            )
+    
+    def show_server_url_dialog(self):
+        """Affiche le dialogue de configuration de l'URL du serveur"""
+        dialog = ServerUrlDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Redémarrer l'auto-updater avec la nouvelle URL si nécessaire
+            if hasattr(self, 'auto_updater') and self.auto_updater:
+                try:
+                    self.auto_updater.server_url = config.get_server_url()
+                    self.app_logger.info(f"URL serveur mise à jour: {config.get_server_url()}")
+                except Exception as e:
+                    self.app_logger.error(f"Erreur mise à jour URL serveur: {e}")
     
     def show_maintenance_dialog(self):
         """Affiche le dialogue de maintenance avec les fichiers Markdown"""
@@ -9102,6 +9261,195 @@ class GeneralSettingsDialog(QDialog):
             super().accept()
         except Exception as e:
             QMessageBox.warning(self, "Erreur", f"Erreur lors de la sauvegarde des paramètres: {e}")
+
+
+class ServerUrlDialog(QDialog):
+    """Dialogue pour configurer l'URL du serveur de mise à jour"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("🌐 Configuration Serveur")
+        self.setModal(True)
+        self.resize(500, 300)
+        self.init_ui()
+        self.load_current_settings()
+    
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # Titre et description
+        title = QLabel("🌐 Configuration du Serveur")
+        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        layout.addWidget(title)
+        
+        description = QLabel(
+            "Configurez l'URL du serveur de mise à jour. Cette URL sera utilisée "
+            "pour vérifier les mises à jour et télécharger les nouvelles versions.\n\n"
+            "Exemples d'URLs valides :\n"
+            "• http://localhost:8080 (serveur local)\n"
+            "• https://abc123.ngrok.io (tunnel ngrok)\n"
+            "• https://monserveur.com:8080 (serveur distant)"
+        )
+        description.setWordWrap(True)
+        description.setStyleSheet("color: #666; margin: 10px 0;")
+        layout.addWidget(description)
+        
+        # Configuration URL serveur
+        server_group = QGroupBox("URL du serveur de mise à jour")
+        server_layout = QFormLayout(server_group)
+        
+        self.server_url_input = QLineEdit()
+        self.server_url_input.setPlaceholderText("https://exemple.ngrok.io ou http://localhost:8080")
+        self.server_url_input.textChanged.connect(self.validate_url)
+        
+        self.url_status = QLabel()
+        self.url_status.setStyleSheet("font-size: 11px; margin-top: 5px;")
+        
+        server_layout.addRow("URL du serveur:", self.server_url_input)
+        server_layout.addRow("", self.url_status)
+        layout.addWidget(server_group)
+        
+        # Bouton de test
+        self.test_btn = QPushButton("🔍 Tester la connexion")
+        self.test_btn.clicked.connect(self.test_connection)
+        layout.addWidget(self.test_btn)
+        
+        # Zone d'information
+        self.info_label = QLabel()
+        self.info_label.setWordWrap(True)
+        self.info_label.setStyleSheet("color: #666; font-size: 10px; margin: 10px 0;")
+        layout.addWidget(self.info_label)
+        
+        # Boutons de dialogue
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+    
+    def validate_url(self):
+        """Valide l'URL saisie"""
+        url = self.server_url_input.text().strip()
+        if not url:
+            self.url_status.setText("")
+            return
+        
+        if url.startswith(('http://', 'https://')):
+            self.url_status.setText("✅ Format URL valide")
+            self.url_status.setStyleSheet("color: green; font-size: 11px;")
+        else:
+            self.url_status.setText("⚠️ L'URL doit commencer par http:// ou https://")
+            self.url_status.setStyleSheet("color: orange; font-size: 11px;")
+    
+    def test_connection(self):
+        """Teste la connexion au serveur"""
+        url = self.server_url_input.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Erreur", "Veuillez saisir une URL de serveur")
+            return
+        
+        self.test_btn.setEnabled(False)
+        self.test_btn.setText("⏳ Test en cours...")
+        
+        try:
+            import requests
+            import urllib.parse
+            
+            # Construire l'URL de test (endpoint racine qui existe)
+            parsed_url = urllib.parse.urlparse(url)
+            if not parsed_url.scheme:
+                test_url = f"http://{url}/"
+            else:
+                test_url = f"{url}/"
+            
+            # Test de connexion avec timeout court
+            response = requests.get(test_url, timeout=5)
+            
+            if response.status_code == 200:
+                # Analyser la réponse pour plus d'informations
+                response_info = ""
+                try:
+                    json_response = response.json()
+                    if "message" in json_response:
+                        response_info = f"\nMessage: {json_response['message']}"
+                    if "status" in json_response:
+                        response_info += f"\nStatut serveur: {json_response['status']}"
+                except:
+                    pass
+                
+                QMessageBox.information(
+                    self, 
+                    "✅ Connexion réussie", 
+                    f"Le serveur répond correctement!\n\nURL testée: {test_url}\nStatut HTTP: {response.status_code}{response_info}"
+                )
+                self.info_label.setText(f"✅ Dernière connexion réussie: {test_url}")
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "⚠️ Réponse inattendue", 
+                    f"Le serveur répond mais avec un statut inattendu.\n\nURL: {test_url}\nStatut: {response.status_code}"
+                )
+                self.info_label.setText(f"⚠️ Réponse inattendue du serveur (statut {response.status_code})")
+        
+        except requests.exceptions.ConnectionError:
+            QMessageBox.critical(
+                self, 
+                "❌ Connexion échouée", 
+                f"Impossible de se connecter au serveur.\n\nVérifiez que :\n"
+                f"• Le serveur fonctionne\n"
+                f"• L'URL est correcte\n"
+                f"• Votre connexion Internet fonctionne\n\n"
+                f"URL testée: {test_url if 'test_url' in locals() else url}"
+            )
+            self.info_label.setText("❌ Connexion échouée")
+        
+        except requests.exceptions.Timeout:
+            QMessageBox.warning(
+                self, 
+                "⏰ Timeout", 
+                "La connexion a pris trop de temps.\n\nLe serveur est peut-être surchargé ou l'URL incorrecte."
+            )
+            self.info_label.setText("⏰ Timeout de connexion")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors du test: {str(e)}")
+            self.info_label.setText(f"❌ Erreur: {str(e)}")
+        
+        finally:
+            self.test_btn.setEnabled(True)
+            self.test_btn.setText("🔍 Tester la connexion")
+    
+    def load_current_settings(self):
+        """Charge les paramètres actuels"""
+        current_url = config.get_server_url()
+        self.server_url_input.setText(current_url)
+        self.validate_url()
+        self.info_label.setText(f"URL actuelle: {current_url}")
+    
+    def accept(self):
+        """Sauvegarde les paramètres avant fermeture"""
+        try:
+            url = self.server_url_input.text().strip()
+            
+            if url and not url.startswith(('http://', 'https://')):
+                QMessageBox.warning(
+                    self, 
+                    "URL invalide", 
+                    "L'URL doit commencer par http:// ou https://"
+                )
+                return
+            
+            # Sauvegarder la configuration
+            config.set_server_url(url)
+            
+            QMessageBox.information(
+                self, 
+                "✅ Sauvegardé", 
+                f"URL du serveur mise à jour avec succès!\n\nNouvelle URL: {url or '(vide - utilisation par défaut)'}"
+            )
+            
+            super().accept()
+        except Exception as e:
+            QMessageBox.warning(self, "Erreur", f"Erreur lors de la sauvegarde: {e}")
 
 
 class MaintenanceDialog(QDialog):

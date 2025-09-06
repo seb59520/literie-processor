@@ -4,11 +4,11 @@ Fichier de version centralisé pour l'application Matelas Processor
 """
 
 # Version principale de l'application
-VERSION = "3.11.9"
+VERSION = "3.11.11"
 
 # Informations de build
 BUILD_DATE = "2025-09-02"
-BUILD_NUMBER = "20250902_11"
+BUILD_NUMBER = "20250902_13"
 
 # Informations complètes
 VERSION_INFO = {
@@ -34,6 +34,36 @@ def get_changelog():
     """Retourne le changelog de l'application"""
     return """
 # Changelog - Matelas Processor
+
+## Version 3.11.11 (2025-09-02)
+
+### 🔧 Corrections des problèmes de mise à jour
+- **Erreur 500 corrigée** : Résolution du problème de téléchargement depuis le serveur distant
+- **Interface de mise à jour améliorée** : Fenêtre plus visible avec styles CSS modernes
+- **Serveur robuste** : Correction du chemin de téléchargement des packages
+- **Visibilité optimisée** : Suppression de la transparence problématique des dialogs
+
+### ✨ Améliorations visuelles
+- **Dialog stylé** : Bordure bleue, fond opaque, boutons modernes
+- **Contraste amélioré** : Texte plus lisible, couleurs professionnelles
+- **Expérience utilisateur** : Interface plus claire et professionnelle
+
+---
+
+## Version 3.11.10 (2025-09-02)
+
+### 🧪 Version de test
+- **Test du système de mise à jour automatique** : Version créée spécialement pour tester la mise à jour à distance
+- **Validation de la télémétrie** : Test de la remontée d'informations client
+- **Vérification de l'indicateur** : Contrôle de l'affichage des notifications de mise à jour
+- **Test de la distribution** : Validation du processus complet de déploiement
+
+### 🔧 Améliorations techniques
+- **Système de mise à jour** : Validation complète du cycle de vie des mises à jour
+- **Interface utilisateur** : Test de l'indicateur en conditions réelles
+- **Serveur de distribution** : Vérification de la robustesse du système
+
+---
 
 ## Version 3.11.1 (2025-09-02)
 

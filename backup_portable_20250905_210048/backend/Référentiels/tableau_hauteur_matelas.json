@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "description": "Tableau de référence des hauteurs de matelas par type de noyau",
+  "date_creation": "2025-07-22",
+  "unite": "centimetres",
+  
+  "hauteurs_matelas": {
+    "LATEX NATUREL": {
+      "hauteur_cm": 10,
+      "description": "Matelas latex naturel 100%",
+      "epaisseur_noyau": 8,
+      "epaisseur_housse": 2,
+      "total": 10,
+      "categorie": "LATEX",
+      "densite": "haute",
+      "zones": false
+    },
+    "LATEX MIXTE 7 ZONES": {
+      "hauteur_cm": 9,
+      "description": "Matelas latex mixte avec zones de confort",
+      "epaisseur_noyau": 7,
+      "epaisseur_housse": 2,
+      "total": 9,
+      "categorie": "LATEX",
+      "densite": "moyenne",
+      "zones": true
+    },
+    "LATEX RENFORCE": {
+      "hauteur_cm": 8,
+      "description": "Matelas latex renforcé haute densité",
+      "epaisseur_noyau": 6,
+      "epaisseur_housse": 2,
+      "total": 8,
+      "categorie": "LATEX",
+      "densite": "tres_haute",
+      "zones": false
+    },
+    "LATEX 3 Z CENTRE RENFORCÉ": {
+      "hauteur_cm": 8,
+      "description": "Matelas latex 3 zones centre renforcé",
+      "epaisseur_noyau": 6,
+      "epaisseur_housse": 2,
+      "total": 8,
+      "categorie": "LATEX",
+      "densite": "tres_haute",
+      "zones": true
+    },
+    "MOUSSE RAINUREE 7 ZONES": {
+      "hauteur_cm": 9,
+      "description": "Matelas mousse rainurée avec zones",
+      "epaisseur_noyau": 7,
+      "epaisseur_housse": 2,
+      "total": 9,
+      "categorie": "MOUSSE",
+      "densite": "moyenne",
+      "zones": true
+    },
+    "MOUSSE RAINURÉE 7 ZONES": {
+      "hauteur_cm": 9,
+      "description": "Matelas mousse rainurée (accentué)",
+      "epaisseur_noyau": 7,
+      "epaisseur_housse": 2,
+      "total": 9,
+      "categorie": "MOUSSE",
+      "densite": "moyenne",
+      "zones": true
+    },
+    "MOUSSE VISCO": {
+      "hauteur_cm": 10,
+      "description": "Matelas mousse viscoélastique",
+      "epaisseur_noyau": 8,
+      "epaisseur_housse": 2,
+      "total": 10,
+      "categorie": "MOUSSE",
+      "densite": "haute",
+      "zones": false
+    },
+    "SELECT 43": {
+      "hauteur_cm": 8,
+      "description": "Matelas Select 43 haute densité",
+      "epaisseur_noyau": 6,
+      "epaisseur_housse": 2,
+      "total": 8,
+      "categorie": "SELECT",
+      "densite": "tres_haute",
+      "zones": false
+    },
+    "LATEX MIXTE": {
+      "hauteur_cm": 9,
+      "description": "Matelas latex mixte (sans zones)",
+      "epaisseur_noyau": 7,
+      "epaisseur_housse": 2,
+      "total": 9,
+      "categorie": "LATEX",
+      "densite": "moyenne",
+      "zones": false
+    },
+    "MOUSSE RAINUREE": {
+      "hauteur_cm": 9,
+      "description": "Matelas mousse rainurée (sans zones)",
+      "epaisseur_noyau": 7,
+      "epaisseur_housse": 2,
+      "total": 9,
+      "categorie": "MOUSSE",
+      "densite": "moyenne",
+      "zones": false
+    },
+    "MOUSSE STANDARD": {
+      "hauteur_cm": 8,
+      "description": "Matelas mousse standard",
+      "epaisseur_noyau": 6,
+      "epaisseur_housse": 2,
+      "total": 8,
+      "categorie": "MOUSSE",
+      "densite": "standard",
+      "zones": false
+    }
+  },
+  
+  "categories": {
+    "LATEX": {
+      "hauteur_min": 8,
+      "hauteur_max": 10,
+      "hauteur_moyenne": 9,
+      "types": ["LATEX NATUREL", "LATEX MIXTE 7 ZONES", "LATEX RENFORCE", "LATEX 3 Z CENTRE RENFORCÉ", "LATEX MIXTE"],
+      "description": "Matelas en latex naturel ou mixte"
+    },
+    "MOUSSE": {
+      "hauteur_min": 8,
+      "hauteur_max": 10,
+      "hauteur_moyenne": 9,
+      "types": ["MOUSSE RAINUREE 7 ZONES", "MOUSSE VISCO", "MOUSSE RAINUREE", "MOUSSE STANDARD"],
+      "description": "Matelas en mousse polyuréthane"
+    },
+    "SELECT": {
+      "hauteur_min": 8,
+      "hauteur_max": 8,
+      "hauteur_moyenne": 8,
+      "types": ["SELECT 43"],
+      "description": "Matelas Select haute densité"
+    }
+  },
+  
+  "hauteurs_par_valeur": {
+    "8": ["LATEX RENFORCE", "LATEX 3 Z CENTRE RENFORCÉ", "SELECT 43", "MOUSSE STANDARD"],
+    "9": ["LATEX MIXTE 7 ZONES", "MOUSSE RAINUREE 7 ZONES", "MOUSSE RAINURÉE 7 ZONES", "LATEX MIXTE", "MOUSSE RAINUREE"],
+    "10": ["LATEX NATUREL", "MOUSSE VISCO"]
+  },
+  
+  "metadonnees": {
+    "epaisseur_housse_standard": 2,
+    "unite_mesure": "cm",
+    "precision": "centimetre",
+    "derniere_mise_a_jour": "2025-07-22",
+    "auteur": "MatelasApp System"
+  }
+} 

@@ -368,7 +368,7 @@ def create_executable_update_dialog(update_info, parent=None):
     
     def install_update():
         dialog.accept()
-        full_download_url = f"http://localhost:8081{update_info.download_url}"  # URL complète
+        full_download_url = f"http://72.60.47.183{update_info.download_url}"  # URL complète
         update_manager.install_executable_update(full_download_url, update_info.latest_version)
     
     install_btn.clicked.connect(install_update)

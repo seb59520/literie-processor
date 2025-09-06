@@ -1,0 +1,29 @@
+{
+  "nom": "MATELAS_v3.11.12_PORTABLE_20250906_170330.zip",
+  "version": "3.11.12",
+  "type": "portable",
+  "created": "2025-09-06T17:03:30.253867",
+  "taille_mb": 0.8,
+  "fichiers_count": 128,
+  "compression_pct": 60.3,
+  "installation": {
+    "etapes": [
+      "1. Extraire l'archive dans un dossier",
+      "2. Ouvrir un terminal dans ce dossier",
+      "3. Exécuter: python3 install.py",
+      "4. Lancer: python3 app_gui.py"
+    ],
+    "prerequis": [
+      "Python 3.8+",
+      "Connexion Internet (pour dépendances)",
+      "10 Go d'espace libre"
+    ]
+  },
+  "nouvelles_fonctionnalites": [
+    "Générateur de packages correctifs",
+    "Suggestions automatiques de packages",
+    "Consolidation et upload VPS",
+    "Interface améliorée avec protections",
+    "Configuration serveur VPS intégrée"
+  ]
+}

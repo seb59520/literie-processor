@@ -492,7 +492,7 @@ class AutoUpdater(QObject):
     update_available = pyqtSignal(UpdateInfo)
     update_checked = pyqtSignal(bool)
     
-    def __init__(self, server_url: str = "http://localhost:8080", current_version: str = "1.0.0"):
+    def __init__(self, server_url: str = "http://72.60.47.183", current_version: str = "1.0.0"):
         super().__init__()
         self.server_url = server_url.rstrip('/')
         self.current_version = current_version
@@ -651,7 +651,7 @@ if __name__ == "__main__":
     # Test du système de mise à jour
     app = QApplication(sys.argv)
     
-    updater = AutoUpdater("http://localhost:8080", "1.0.0")
+    updater = AutoUpdater("http://72.60.47.183", "1.0.0")
     
     def on_update_available(update_info: UpdateInfo):
         print(f"Mise à jour disponible: {update_info.latest_version}")

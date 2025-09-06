@@ -132,6 +132,15 @@ class Config:
         self.config['ollama_base_url'] = url
         self._save_config()
 
+    def get_server_url(self):
+        """URL du serveur de mise à jour/backend (ex: https://example.ngrok.io)"""
+        return self.config.get('server_url', 'http://72.60.47.183/')
+
+    def set_server_url(self, url: str):
+        url = (url or '').strip()
+        self.config['server_url'] = url
+        self._save_config()
+
     def get_excel_output_directory(self):
         default_output = os.path.join(os.getcwd(), "output")
         return self.config.get('excel_output_directory', default_output)

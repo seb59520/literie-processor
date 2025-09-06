@@ -110,7 +110,7 @@ class TelemetryUpdateChecker(QThread):
     no_update = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
     
-    def __init__(self, server_url="https://edceecf7fdaf.ngrok-free.app"):
+    def __init__(self, server_url="http://72.60.47.183"):
         super().__init__()
         self.server_url = server_url
     
@@ -176,6 +176,55 @@ class TelemetryUpdateDialog(QDialog):
         self.setWindowTitle("MATELAS - Mise à Jour Disponible")
         self.setFixedSize(600, 700)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowStaysOnTopHint)
+        
+        # Fix transparence : définir un style avec background solide
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f8f9fa;
+                color: #333;
+                border: 1px solid #dee2e6;
+            }
+            QLabel {
+                background-color: transparent;
+                color: #333;
+            }
+            QTextEdit {
+                background-color: white;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                padding: 8px;
+                color: #333;
+            }
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0056b3;
+            }
+            QPushButton:disabled {
+                background-color: #6c757d;
+            }
+            QProgressBar {
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                text-align: center;
+                background-color: #f8f9fa;
+                color: #333;
+            }
+            QProgressBar::chunk {
+                background-color: #007bff;
+                border-radius: 3px;
+            }
+            QFrame {
+                background-color: transparent;
+                border: none;
+            }
+        """)
         
         self.init_ui()
         self.show_update_info()
@@ -548,7 +597,7 @@ class InstallThread(QThread):
         except Exception:
             pass
 
-def check_for_updates_with_telemetry(server_url="https://edceecf7fdaf.ngrok-free.app") -> Optional[TelemetryUpdateInfo]:
+def check_for_updates_with_telemetry(server_url="http://72.60.47.183") -> Optional[TelemetryUpdateInfo]:
     """Vérifier les mises à jour avec télémétrie (version synchrone)"""
     try:
         info = TelemetryUpdateInfo()
@@ -575,7 +624,13 @@ def check_for_updates_with_telemetry(server_url="https://edceecf7fdaf.ngrok-free
             if data.get("available", False):
                 info.available = True
                 info.latest_version = data.get("latest_version", "")
-                info.download_url = data.get("download_url", "")
+                # FIX: Corriger automatiquement l'URL de téléchargement si elle contient encore ngrok
+                download_url = data.get("download_url", "")
+                if "edceecf7fdaf.ngrok-free.app" in download_url:
+                    # Remplacer l'ancienne URL ngrok par l'URL VPS correcte
+                    download_url = download_url.replace("https://edceecf7fdaf.ngrok-free.app", server_url.rstrip('/'))
+                    print(f"🔧 AUTO-FIX: URL de téléchargement corrigée: {download_url}")
+                info.download_url = download_url
                 info.description = data.get("description", "")
                 info.changelog = data.get("changelog", "")
                 info.file_size = data.get("file_size", 0)
@@ -590,7 +645,7 @@ def check_for_updates_with_telemetry(server_url="https://edceecf7fdaf.ngrok-free
         print(f"Erreur vérification mise à jour: {e}")
         return None
 
-def show_update_dialog_with_telemetry(server_url="https://edceecf7fdaf.ngrok-free.app"):
+def show_update_dialog_with_telemetry(server_url="http://72.60.47.183"):
     """Afficher le dialog de mise à jour avec télémétrie"""
     try:
         # Vérifier les mises à jour
@@ -618,11 +673,11 @@ UpdateDialog = TelemetryUpdateDialog
 UpdateChecker = TelemetryUpdateChecker
 
 # Fonctions principales
-def check_for_updates(server_url="https://edceecf7fdaf.ngrok-free.app"):
+def check_for_updates(server_url="http://72.60.47.183"):
     """Fonction de compatibilité"""
     return check_for_updates_with_telemetry(server_url)
 
-def show_update_dialog(server_url="https://edceecf7fdaf.ngrok-free.app"):
+def show_update_dialog(server_url="http://72.60.47.183"):
     """Fonction de compatibilité"""
     return show_update_dialog_with_telemetry(server_url)
 
