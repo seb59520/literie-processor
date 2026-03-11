@@ -4,7 +4,7 @@ Fichier de version centralisé pour l'application Matelas Processor
 """
 
 # Version principale de l'application
-VERSION = "3.11.11"
+VERSION = "3.12.0"
 
 # Informations de build
 BUILD_DATE = "2025-09-02"
@@ -31,7 +31,20 @@ def get_version_info():
     return VERSION_INFO.copy()
 
 def get_changelog():
-    """Retourne le changelog de l'application"""
+    """Retourne le changelog de l'application depuis NOTES_DE_VERSION.md"""
+    import os
+    # Chercher le fichier NOTES_DE_VERSION.md à côté de ce script
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    notes_path = os.path.join(base_dir, "NOTES_DE_VERSION.md")
+    if os.path.exists(notes_path):
+        with open(notes_path, "r", encoding="utf-8") as f:
+            return f.read()
+    # Fallback : changelog historique intégré
+    return _get_changelog_legacy()
+
+
+def _get_changelog_legacy():
+    """Changelog historique intégré (fallback)"""
     return """
 # Changelog - Matelas Processor
 
