@@ -2,10 +2,12 @@ import os
 import shutil
 import logging
 import json
-from fastapi import FastAPI, File, UploadFile, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, File, UploadFile, Request, Form, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
 import fitz  # PyMuPDF
 import uvicorn
 import tempfile
@@ -128,8 +130,194 @@ temp_upload_dir = os.path.join(str(base_dir), "temp_uploads")
 os.makedirs(temp_upload_dir, exist_ok=True)
 UPLOAD_DIR = temp_upload_dir
 
+# ============================================================
+# Authentication for /api/* endpoints
+# ============================================================
+security = HTTPBasic()
+
+def get_auth_password() -> str:
+    """Returns the configured auth password from env or config."""
+    return os.environ.get("AUTH_PASSWORD", "") or config.config.get("auth_password", "")
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """HTTP Basic auth check — username is ignored, only password matters."""
+    expected = get_auth_password()
+    if not expected:
+        # No password configured → allow access (dev mode)
+        return credentials
+    if not secrets.compare_digest(credentials.password.encode(), expected.encode()):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Mot de passe incorrect",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials
+
+# ============================================================
+# JSON API endpoints
+# ============================================================
+
+@app.get("/api/health")
+def api_health():
+    """Health check JSON endpoint (public, no auth)."""
+    from backend.version import __version__ as backend_version
+    return {"status": "ok", "version": backend_version}
+
+@app.get("/api/release-notes")
+def api_release_notes():
+    """Return release notes content (public, no auth)."""
+    import os as _os
+    base = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    notes_path = _os.path.join(base, "NOTES_DE_VERSION.md")
+    content = ""
+    if _os.path.exists(notes_path):
+        with open(notes_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    from backend.version import __version__ as backend_version
+    return {"version": backend_version, "content": content}
+
+@app.get("/api/auth/check")
+def api_auth_check(credentials: HTTPBasicCredentials = Depends(verify_credentials)):
+    """Verify credentials. Returns 401 if password is wrong."""
+    return {"authenticated": True}
+
+@app.get("/api/settings")
+def api_get_settings(credentials: HTTPBasicCredentials = Depends(verify_credentials)):
+    """Get application settings."""
+    return {
+        "excel_output_directory": config.get_excel_output_directory(),
+        "noyau_order": config.get_noyau_order(),
+    }
+
+@app.put("/api/settings")
+def api_put_settings(body: dict, credentials: HTTPBasicCredentials = Depends(verify_credentials)):
+    """Update application settings."""
+    if "excel_output_directory" in body:
+        directory = body["excel_output_directory"].strip()
+        if not directory:
+            raise HTTPException(status_code=400, detail="Le répertoire ne peut pas être vide")
+        os.makedirs(directory, exist_ok=True)
+        config.set_excel_output_directory(directory)
+    if "noyau_order" in body:
+        order = body["noyau_order"]
+        if not isinstance(order, list):
+            raise HTTPException(status_code=400, detail="noyau_order doit être une liste")
+        config.set_noyau_order(order)
+    return {
+        "status": "ok",
+        "excel_output_directory": config.get_excel_output_directory(),
+        "noyau_order": config.get_noyau_order(),
+    }
+
+@app.post("/api/upload")
+async def api_upload(
+    file: List[UploadFile] = File(...),
+    semaine_prod: int = Form(...),
+    annee_prod: int = Form(...),
+    commande_client: List[str] = Form(...),
+    semaine_matelas: int = Form(None),
+    annee_matelas: int = Form(None),
+    semaine_sommiers: int = Form(None),
+    annee_sommiers: int = Form(None),
+    credentials: HTTPBasicCredentials = Depends(verify_credentials),
+):
+    """
+    Process uploaded PDF files and return structured JSON results.
+    Also generates Excel output files available via /api/download/.
+    """
+    from backend.web_processing import web_processor
+
+    # Save uploaded files to temp dir
+    saved_paths = []
+    try:
+        for f in file:
+            if not f.filename.endswith(".pdf"):
+                continue
+            temp_path = os.path.join(UPLOAD_DIR, f.filename)
+            with open(temp_path, "wb") as buf:
+                shutil.copyfileobj(f.file, buf)
+            saved_paths.append(temp_path)
+
+        if not saved_paths:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Aucun fichier PDF valide fourni"},
+            )
+
+        result = await web_processor.process_uploaded_files(
+            file_paths=saved_paths,
+            semaine_prod=semaine_prod,
+            annee_prod=annee_prod,
+            commande_client=commande_client,
+            semaine_matelas=semaine_matelas,
+            annee_matelas=annee_matelas,
+            semaine_sommiers=semaine_sommiers,
+            annee_sommiers=annee_sommiers,
+        )
+
+        return JSONResponse(content=result)
+
+    finally:
+        # Cleanup temp files
+        for p in saved_paths:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+@app.get("/api/download/{filename}")
+def api_download(filename: str, credentials: HTTPBasicCredentials = Depends(verify_credentials)):
+    """Download a generated Excel file."""
+    output_dir = config.get_excel_output_directory()
+    file_path = os.path.join(output_dir, filename)
+
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Fichier non trouvé")
+
+    return FileResponse(
+        file_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+    )
+
+@app.get("/api/files")
+def api_list_files(credentials: HTTPBasicCredentials = Depends(verify_credentials)):
+    """List available Excel output files."""
+    output_dir = config.get_excel_output_directory()
+    if not os.path.isdir(output_dir):
+        return {"files": []}
+    files = []
+    for f in sorted(os.listdir(output_dir)):
+        if f.endswith(".xlsx"):
+            fp = os.path.join(output_dir, f)
+            files.append({
+                "name": f,
+                "size": os.path.getsize(fp),
+                "modified": os.path.getmtime(fp),
+            })
+    return {"files": files}
+
+@app.delete("/api/files/{filename}")
+def api_delete_file(filename: str, credentials: HTTPBasicCredentials = Depends(verify_credentials)):
+    """Delete a generated Excel file."""
+    output_dir = config.get_excel_output_directory()
+    file_path = os.path.join(output_dir, filename)
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Fichier non trouvé")
+    os.remove(file_path)
+    return {"status": "ok", "deleted": filename}
+
+# ============================================================
+# Existing HTML endpoints (preserved for desktop compatibility)
+# ============================================================
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, result: dict = None, error: str = None):
+    # If static frontend is deployed, serve the SPA index.html
+    _spa_index = pathlib.Path(__file__).resolve().parent.parent / "static" / "index.html"
+    if _spa_index.is_file():
+        from starlette.responses import FileResponse as _FR
+        return _FR(str(_spa_index))
     current_year = datetime.now().year
     logger.info(f"Accès à la page d'accueil - result: {result}, error: {error}")
     return templates.TemplateResponse("index.html", {"request": request, "result": result, "error": error, "current_year": current_year})
@@ -663,7 +851,7 @@ RÈGLES D'EXTRACTION STRICTES :
   "articles": [
     {{
       "type": "matelas|sommier|accessoire|tête de lit|pieds|remise",
-      "description": "description complète de l'article",
+      "description": "description complète de l'article. IMPORTANT: Pour les articles composés de plusieurs éléments séparés par ' + ' (ex: 'JEU DE 8 PIEDS CUBIQUE BRUT 20 CM + PLATINE DE RÉUNION + PATINS TÉFLON'), extraire la description COMPLÈTE avec tous les composants. Ne pas séparer en plusieurs articles, garder la description entière telle quelle.",
       "titre_cote": "OBLIGATOIRE: Chercher '- MME', '- MR', '- Mr', '- Mme' à la fin des descriptions de matelas (ex: 'MATELAS... 20 - MME' → 'MME', 'LATEX 20 - MR' → 'MR'). Si pas trouvé, laisser vide.",
       "information": "en-tête comme '1/ CHAMBRE XYZ' si présent",
       "quantite": nombre,
@@ -697,6 +885,7 @@ RÈGLES D'EXTRACTION STRICTES :
 - Les montants doivent être des nombres (pas de texte)
 - Si une information est absente : null pour les nombres, "" pour les textes
 - IMPORTANT titre_cote: Pour chaque matelas, chercher à la fin de la description s'il y a "- MME", "- MR", "- Mr", ou "- Mme" et extraire seulement la partie après le tiret (MME, MR, Mr, Mme). Exemple: "MATELAS LATEX 79/198/20 - MME" → titre_cote: "MME"
+- IMPORTANT description articles composés: Si un article contient plusieurs éléments séparés par " + " (ex: "JEU DE 8 PIEDS CUBIQUE BRUT 20 CM + PLATINE DE RÉUNION + PATINS TÉFLON"), extraire la description COMPLÈTE en un seul article. Ne pas créer plusieurs articles séparés. Le type doit être "pieds" ou "accessoire" selon le contexte.
 
 3. EXEMPLE DE RÉFÉRENCE :
 {{
@@ -745,6 +934,19 @@ RÈGLES D'EXTRACTION STRICTES :
         "poignées": "oui",
         "lavable": "40°"
       }}
+    }},
+    {{
+      "type": "pieds",
+      "description": "JEU DE 8 PIEDS CUBIQUE BRUT 20 CM + PLATINE DE RÉUNION + PATINS TÉFLON",
+      "titre_cote": "",
+      "information": "",
+      "quantite": 1,
+      "dimensions": "",
+      "noyau": "",
+      "fermete": "",
+      "housse": "",
+      "matiere_housse": "",
+      "autres_caracteristiques": {{}}
     }}
   ],
   "paiement": {{
@@ -770,7 +972,7 @@ Réponds UNIQUEMENT avec un JSON valide selon cette structure exacte.
             file_size=file_size,
             session_id=session_id,
             temperature=0.1, 
-            max_tokens=2000
+            max_tokens=4096
         )
         
         if result["success"]:
@@ -788,6 +990,30 @@ Réponds UNIQUEMENT avec un JSON valide selon cette structure exacte.
     except Exception as e:
         logger.error(f"Erreur lors de l'appel LLM: {e}")
         return f"Erreur lors de l'appel LLM: {str(e)}"
+
+# ============================================================
+# Serve static frontend (for Fly.io / single-container deploy)
+# ============================================================
+_STATIC_DIR = pathlib.Path(__file__).resolve().parent.parent / "static"
+if _STATIC_DIR.is_dir():
+    from starlette.staticfiles import StaticFiles
+    from starlette.responses import FileResponse as StarletteFileResponse
+
+    # Serve /assets/* directly (Vite build output)
+    _ASSETS_DIR = _STATIC_DIR / "assets"
+    if _ASSETS_DIR.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="frontend-assets")
+
+    # SPA catch-all: any non-API route serves index.html
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Try to serve the exact static file first
+        file_path = _STATIC_DIR / full_path
+        if full_path and file_path.is_file():
+            return StarletteFileResponse(str(file_path))
+        # Otherwise serve index.html (SPA routing)
+        return StarletteFileResponse(str(_STATIC_DIR / "index.html"))
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 
