@@ -1,16 +1,32 @@
 # Notes de version - Literie Processor
 
-## 2026-03-11 — Sommiers : corrections calculs jumeaux
+## 2026-03-11 — Sommiers : pipeline PDF et corrections Excel
 
+### Extraction PDF
+- Split articles individuels (LITERIE, SOMMIER, DOSSERET, PIEDS, METRAGE, etc.) au lieu d'un bloc monolithique
+- Extraction ville client corrigée (filtrage adresse société BORRE et codes APE)
+- Suppression boilerplate page 2 des PDFs multi-pages
+- Suppression préfixes prix/quantité des descriptions articles
+
+### Détection et calculs
 - Détection du type FIXE améliorée (gestion du tiret dans "JUMEAUX - FIXE")
 - Finition structure : distinction HÊTRE lattes vs HÊTRE structure, ajout type MULTIPLIS
-- Détection PAREMENTÉ sans préfixe "STRUCTURE"
+- Détection PAREMENTÉ/PAREMENT ÉE (espaces PDF)
 - Calcul dimensions jumeaux corrigé (déductions -10/-6 selon finition, 0 pour FIXE)
+- Hauteur row 7 : utilise hauteur SOMMIER structure (pas LITERIE)
+- Dimensions jumeaux row 11 : utilise dimensions SOMMIER structure (pas LITERIE)
 - Hauteur décimale formatée avec virgule (ex: 11,5)
+- Types sommier : FIXE / TPR / TT embout TPR / TT embout sur TENON
+
+### Excel
+- DOSSERET : détection par startsWith uniquement (évite faux positifs "pour dosseret")
+- DOSSERET texte : nettoyé (espaces, accents, coupé après "BASE SOMMIERS")
+- METRAGE PVC/TISSU : texte nettoyé (tirets, parenthèses supprimés)
+- PLATINE DE RÉUNION : détection pluriel "PLATINES"
 - Détection TIROIR/NICHE pour chevets
 - Détection pieds centraux
 - Simplification nom client (suppression civilité)
-- Types sommier : FIXE / TPR / TT embout TPR / TT embout sur TENON
+- Numéros de commande en entier
 
 ---
 

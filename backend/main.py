@@ -493,8 +493,8 @@ async def upload_pdf(
                             llm_data = {}
                         else:
                             logger.info(f"llm_data est un dictionnaire valide pour {f.filename}")
-                            # Extraction des données client
-                            donnees_client = extraire_donnees_client(llm_data)
+                            # Extraction des données client (avec fallback sur texte brut pour la ville)
+                            donnees_client = extraire_donnees_client(llm_data, raw_text=text)
                             logger.info(f"Données client extraites pour {f.filename}: {donnees_client}")
                     except json.JSONDecodeError as json_err:
                         logger.error(f"Erreur parsing JSON pour {f.filename}: {json_err}")
@@ -833,7 +833,7 @@ RÈGLES D'EXTRACTION STRICTES :
   }},
   "client": {{
     "nom": "nom du client",
-    "adresse": "adresse du client",
+    "adresse": "adresse COMPLÈTE du client (rue + code postal + ville). ATTENTION: ne PAS confondre avec l'adresse de la société (525 RD 642 - 59190 BORRE). L'adresse client se trouve APRÈS le nom du client, AVANT le numéro de commande.",
     "code_client": "code client"
   }},
   "commande": {{

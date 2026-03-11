@@ -4,180 +4,109 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MATELAS_FINAL is a comprehensive mattress and bedding processing application that extracts data from PDF documents and generates Excel output files. The application consists of:
+MATELAS_FINAL is a mattress/bedding PDF processing application. It extracts data from PDF quotes using LLM providers, then generates structured Excel output files. The codebase is primarily in French.
 
-- **PyQt6 GUI Frontend** (`app_gui.py`) - Main desktop application interface
-- **FastAPI Backend** (`backend/main.py`) - Web API for document processing
-- **LLM Integration** - Uses various AI providers (OpenRouter, Ollama) for PDF text extraction
-- **Excel Generation** - Creates structured Excel files for mattress specifications
+Two product types are handled: **matelas** (mattresses) and **sommiers** (bed bases), each with separate processing pipelines, Excel templates, and cell mappings.
 
 ## Key Commands
 
-### Backend Development
 ```bash
-# Install backend dependencies
+# Install and run backend (FastAPI on port 8000)
 make install-backend
-
-# Run FastAPI backend server
 make run-backend
 
-# Test local upload simulation
-make test-upload-sim
-
-# Test HTTP upload against running server
-make test-upload-http
-```
-
-### GUI Development
-```bash
-# Install GUI dependencies
+# Launch desktop GUI
 pip install -r requirements_gui.txt
-
-# Launch main GUI application
 python app_gui.py
 
-# Debug mode (Windows)
-diagnostic.bat
-
-# Quick test (Windows)
-test_simple.bat
-```
-
-### Testing
-```bash
-# Run LLM tests
-python lancer_test_llm.py
-
-# Integration tests
-python test_integration_finale.py
-
-# Backend tests
+# Testing
+make test-upload-sim          # Local upload simulation (no server needed)
+make test-upload-http         # HTTP test against running server
 python test_backend_complet.py
+python test_integration_finale.py
+python lancer_test_llm.py     # LLM provider tests
+python3 test_optimizations.py # Backend optimization tests
+python3 test_ui_simple.py     # UI optimization tests
+
+# Web frontend (React/Vite)
+cd pdf-extract-app && npm install && npm run dev
+
+# Online admin interface (port 8080)
+cd online_admin_interface && pip install -r requirements.txt && python main.py
 ```
 
 ## Architecture
 
-### Core Components
+### Data Flow
 
-1. **Frontend (`app_gui.py`)**
-   - PyQt6-based desktop application
-   - Handles PDF upload, processing interface, and Excel export
-   - Integrates with real-time alert system and secure storage
+```
+PDF → app_gui.py → backend_interface.py → backend/main.py
+                                              ↓
+                                    PyMuPDF text extraction
+                                              ↓
+                                    backend/llm_provider.py (LLM call)
+                                              ↓
+                                    backend/*_utils.py (29 modules)
+                                    + backend/Référentiels/*.json (lookup tables)
+                                              ↓
+                                    backend/excel_import_utils.py
+                                    (template + config/mappings_matelas.json)
+                                              ↓
+                                         Output Excel
+```
 
-2. **Backend (`backend/`)**
-   - FastAPI web service for PDF processing
-   - Modular utilities for different mattress types and calculations
-   - LLM provider abstraction layer
+### Three UIs
 
-3. **Configuration System**
-   - `config/mappings_matelas.json` - Excel cell mappings for mattresses
-   - `config/mappings_sommiers.json` - Excel cell mappings for bed bases
-   - `matelas_config.json` - Main application configuration
-   - `config/secure_keys.dat` - Encrypted API keys storage
+1. **Desktop GUI** (`app_gui.py`, 518 KB) — PyQt6 app, main production interface
+2. **Web Frontend** (`pdf-extract-app/`) — React 18 + TypeScript + Vite, alternative web UI
+3. **Admin Interface** (`online_admin_interface/`) — FastAPI web app for version/update management (port 8080, HTTP Basic auth)
 
-4. **Reference Data (`backend/Référentiels/`)**
-   - JSON files containing pricing and specification lookup tables
-   - Separate files for different mattress types (latex, foam, visco, etc.)
+### Core Layers
 
-### Processing Pipeline
+- **`backend_interface.py`** (80 KB) — Bridge between GUI and backend. Handles large PDF splitting (>15K chars per chunk), JSON result merging from multi-part LLM responses, and malformed JSON repair.
+- **`backend/main.py`** (38 KB) — FastAPI server. Key endpoints: `POST /upload` (PDF processing), `GET /health`.
+- **`backend/llm_provider.py`** (21 KB) — Abstract `LLMProvider` with implementations for OpenRouter (default), Ollama, OpenAI, Anthropic, Gemini, Mistral. Includes CircuitBreaker pattern (threshold: 5, recovery: 60s), exponential backoff retry, and HTTP connection pooling.
+- **`backend/excel_import_utils.py`** (54 KB) — Populates mattress Excel templates using cell mappings from `config/mappings_matelas.json`.
+- **`backend/excel_sommier_import_utils.py`** (77 KB) — Same for bed bases, using `config/mappings_sommiers.json`.
 
-1. **PDF Upload** → FastAPI endpoint receives file
-2. **Text Extraction** → PyMuPDF extracts text content
-3. **LLM Processing** → AI models parse and structure data
-4. **Data Validation** → Backend utilities validate extracted information
-5. **Excel Generation** → Structured output using openpyxl templates
-6. **GUI Display** → Results shown in PyQt6 interface
+### Backend Utility Modules (`backend/*_utils.py`)
 
-### Key Modules
+29 specialized modules organized by mattress component:
+- **Type detection**: `matelas_utils.py` — identifies 8 mattress types (latex naturel, latex mixte 7 zones, mousse rainurée 7 zones, mousse visco, latex renforcé, select 43, etc.)
+- **Component extraction**: `dimensions_utils.py`, `hauteur_utils.py`, `fermete_utils.py`, `housse_utils.py`, `matiere_housse_utils.py`, `poignees_utils.py`, `decoupe_noyau_utils.py`
+- **Product-specific referential lookups**: Each mattress type has a `*_referentiel.py` and `*_longueur_housse_utils.py` pair that matches against JSON lookup tables in `backend/Référentiels/`
+- **Data preparation**: `pre_import_utils.py`, `article_utils.py`, `client_utils.py`, `date_utils.py`, `operation_utils.py`
+- **Infrastructure**: `retry_utils.py` (circuit breaker), `file_validation.py`, `timeout_manager.py`, `llm_cache.py` (LRU + disk persistence), `mapping_manager.py`, `batch_processor.py`
 
-- `backend/llm_provider.py` - LLM abstraction (OpenRouter, Ollama)
-- `backend/*_utils.py` - Specialized processing for different mattress components
-- `backend_interface.py` - Bridge between GUI and backend
-- `version.py` - Version management and changelog
-- `real_time_alerts.py` - Alert system for processing status
+### Update System
 
-## Configuration
+A full version distribution system:
+- **Server**: `backend/update_server.py` — serves version packages
+- **Client**: `backend/auto_updater.py` — checks for updates with telemetry, downloads and installs
+- **Admin**: `backend/update_admin_interface.py` + `online_admin_interface/` — web UI for uploading new versions
+- **Storage**: `admin_update_storage/versions/` contains ZIP packages, `metadata/manifest.json` tracks all versions
 
-### LLM Providers
-The application supports multiple AI providers configured in `matelas_config.json`:
-- OpenRouter (default)
-- Ollama (local)
-- Various model options (GPT, Claude, Mistral, etc.)
+### Configuration Files
+
+- **`matelas_config.json`** — LLM provider choice, API keys, output directories
+- **`config/mappings_matelas.json`** — Maps extracted fields to Excel cell positions (e.g., `"Client_D1": "D1"`)
+- **`config/mappings_sommiers.json`** — Same for bed bases
+- **`config/secure_keys.dat`** — Encrypted API key storage
+- **`updater_config.json`** — Update server URL and check frequency
+- **`VERSION.json`** — Current app version (semver)
 
 ### Excel Templates
+
 Located in `template/` and `backend/template/`:
-- `template_matelas.xlsx` - Mattress output template
-- `template_sommier.xlsx` - Bed base output template
+- `template_matelas.xlsx` — Mattress output template
+- `template_sommier.xlsx` — Bed base output template
+
+Cell mappings in config files use Excel coordinates (e.g., "D1", "C10") to position extracted data.
 
 ## Development Notes
 
-- The codebase uses both French and English, with French predominant in business logic
-- Configuration files use cell mappings (e.g., "D1", "C10") for Excel positioning
-- The application handles both mattress ("matelas") and bed base ("sommier") processing
-- LLM integration includes fallback providers and error handling
-- File paths are configured for both development and PyInstaller packaging
-
-## Testing Strategy
-
-- Unit tests for individual backend utilities
-- Integration tests for full processing pipeline
-- LLM-specific tests for AI provider functionality
-- GUI tests using Qt test framework
-
-## Optimisations Récentes
-
-### Robustesse et Performance
-- **Système de retry** : Backoff exponentiel avec circuit breaker
-- **Validation des fichiers** : Contrôles préalables de taille, format et contenu
-- **Timeouts dynamiques** : Adaptation basée sur l'historique de performance
-- **Cache LLM** : Cache LRU intelligent avec persistance sur disque
-- **Pool de connexions** : Réutilisation des connexions HTTP
-
-### Nouveaux Modules
-- `backend/retry_utils.py` - Gestion des retry et circuit breakers
-- `backend/file_validation.py` - Validation robuste des fichiers PDF
-- `backend/timeout_manager.py` - Timeouts adaptatifs basés sur l'historique
-- `backend/llm_cache.py` - Cache intelligent pour les appels LLM
-
-### Commandes de Test
-```bash
-# Tester toutes les optimisations
-python3 test_optimizations.py
-
-# Vérifier les métriques de performance
-python3 -c "from backend.llm_cache import llm_cache; print(llm_cache.get_stats())"
-```
-
-
-## Optimisations Interface Utilisateur
-
-### Modules UI Avancés
-- `ui_optimizations.py` - Optimisations de base (animations, responsive, performance)
-- `enhanced_processing_ui.py` - Interface de traitement moderne avec progression détaillée
-- `gui_enhancements.py` - Améliorations ergonomiques et UX
-- `test_ui_simple.py` - Tests des optimisations UI
-
-### Améliorations Implémentées
-- **Interface responsive** : Adaptation automatique à la taille d'écran
-- **Progression intelligente** : ETA en temps réel et détail des étapes
-- **Animations fluides** : Transitions visuelles modernes
-- **Sélecteur de fichiers avancé** : Drag & drop et prévisualisation
-- **Tooltips intelligents** : Aide contextuelle intégrée
-- **Monitoring performance** : Métriques temps réel dans la barre de statut
-
-### Tests Interface
-```bash
-# Test complet des optimisations UI
-python3 test_ui_simple.py
-
-# Test interface PyQt6 (si PyQt6 installé)
-python3 test_ui_enhancements.py
-```
-
-### Intégration
-Les optimisations peuvent être intégrées via:
-```python
-from gui_enhancements import MatelasAppEnhancements
-enhancements = MatelasAppEnhancements(app_instance)
-enhancements.apply_all_enhancements()
-```
+- File paths support both development and PyInstaller packaging (check `config.py` for path resolution)
+- Large PDFs are split into chunks of ~15K chars before LLM calls, then results are merged
+- The `backend/Référentiels/` directory contains ~26 JSON lookup tables for pricing, dimensions, and material specifications — these are the source of truth for product rules
+- `config.py` manages portable configuration storage (AppData on Windows, home dir on macOS/Linux)
+- GUI enhancements can be applied via `MatelasAppEnhancements` from `gui_enhancements.py`

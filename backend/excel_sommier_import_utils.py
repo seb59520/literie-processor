@@ -13,6 +13,28 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from openpyxl.utils import get_column_letter
 
+# Patterns pour détecter et supprimer le boilerplate PDF de page 2
+# (en-tête de Literie Westelynck qui se retrouve en fin d'article quand le PDF a 2 pages)
+_PDF_BOILERPLATE_PATTERNS = [
+    re.compile(r'SAS Literie Westelynck.*$', re.DOTALL | re.IGNORECASE),
+    re.compile(r'Siret\s+429\s+352\s+891.*$', re.DOTALL | re.IGNORECASE),
+    re.compile(r'CEE\s+FR50\s+429\s+352.*$', re.DOTALL | re.IGNORECASE),
+    re.compile(r'Domiciliation\s+Bancaire.*$', re.DOTALL | re.IGNORECASE),
+    re.compile(r'Montant\s+TTC\s+P\.?U\.?\s+TTC\s+Qt[eé]\s+Description.*$', re.DOTALL | re.IGNORECASE),
+    re.compile(r'Maison\s*\n\s*Fond[ée]e\s+en\s*\n.*$', re.DOTALL | re.IGNORECASE),
+]
+
+
+def _strip_pdf_boilerplate(text: str) -> str:
+    """Supprime le texte boilerplate du PDF (en-tête page 2) des descriptions d'articles."""
+    if not text:
+        return text
+    result = text
+    for pattern in _PDF_BOILERPLATE_PATTERNS:
+        result = pattern.sub('', result)
+    return result.strip()
+
+
 FIELD_ROW_OVERRIDES = {
     # Zones lignes 6-13
     "Sommier_DansUnLit_B6": {"row": 6, "column": "left"},
@@ -243,7 +265,7 @@ class ExcelSommierImporter:
                     # Ignorer les numéros de cas du template (1-20) et les cellules fusionnées
                     if cell_str.isdigit():
                         case_num = int(cell_str)
-                        if case_num <= 20:  # Numéro de cas du template, on ignore
+                        if case_num <= 200:  # Numéro de cas du template, on ignore
                             continue
                     # Si c'est autre chose qu'un numéro de cas, le bloc n'est pas vide
                     logger.info(f"Bloc {left_col}-{right_col} non vide: {cell_address} = '{cell_value}'")
@@ -561,13 +583,13 @@ class ExcelSommierImporter:
         # Normaliser la description (enlever accents, mettre en majuscules)
         desc_normalized = unicodedata.normalize('NFKD', description.upper()).encode('ASCII', 'ignore').decode('ASCII')
         
-        # Chercher "PLATINE DE REUNION" (sans accent après normalisation)
-        if "PLATINE DE REUNION" in desc_normalized:
+        # Chercher "PLATINE(S) DE REUNION" (sans accent après normalisation, singulier ou pluriel)
+        if "PLATINE DE REUNION" in desc_normalized or "PLATINES DE REUNION" in desc_normalized:
             return True
-        
+
         # Chercher aussi avec accent dans la description originale (au cas où)
         desc_upper = description.upper()
-        if "PLATINE DE RÉUNION" in desc_upper or "PLATINE DE REUNION" in desc_upper:
+        if "PLATINE DE RÉUNION" in desc_upper or "PLATINES DE RÉUNION" in desc_upper:
             return True
         
         return False
@@ -746,10 +768,15 @@ class ExcelSommierImporter:
         
         # Retirer le contexte des lattes pour éviter les faux positifs
         # Ex: "DOUBLES LATTES ( HÊTRE MULTIPLIS )" ne doit pas compter comme finition HÊTRE
-        desc_sans_lattes = re.sub(r'LATTES\s*\([^)]*\)', 'LATTES', desc_normalized)
+        # Gérer les variations d'espaces et d'accents dans les parenthèses
+        desc_sans_lattes = re.sub(r'LATTES\s*\(\s*[^)]*\)', 'LATTES', desc_normalized)
+        # Gérer aussi le format sans parenthèses: "LATTES HETRE MULTIPLIS" après un tiret
+        desc_sans_lattes = re.sub(r'LATTES\s+HETRE\s+MULTIPLIS', 'LATTES', desc_sans_lattes)
 
         # Détecter PAREMENTÉ (avec ou sans "STRUCTURE" devant)
-        if "PAREMENTEE" in desc_sans_lattes or "PAREMENTE" in desc_sans_lattes:
+        # Gérer aussi "PAREMENT EE" ou "PAREMENT E" (espace due à l'extraction PDF)
+        if ("PAREMENTEE" in desc_sans_lattes or "PAREMENTE" in desc_sans_lattes
+                or "PAREMENT EE" in desc_sans_lattes or "PAREMENT E " in desc_sans_lattes):
             finitions.append(("PAREMENTEE", texte_clean))
 
         # Détecter STRUCTURE HÊTRE MULTIPLIS → type MULTIPLIS (row 25), pas HÊTRE (row 27)
@@ -828,17 +855,28 @@ class ExcelSommierImporter:
             worksheet[cell_address_right] = description
             logger.info(f"Écriture description TETE: {cell_address_right} = {description[:50]}...")
         
-        # Détecter DOSSERET (insensible à la casse)
+        # Détecter DOSSERET (insensible à la casse) - l'article doit commencer par DOSSERET
+        # Exclure les mentions incidentes ("JUMEAUX SUR DOSSERET", "pour dosseret + sommier")
         elif desc_upper.startswith("DOSSERET"):
             # Écrire "X" en B10, D10, F10...
             cell_address_left = f"{left_col}10"
             worksheet[cell_address_left] = "X"
             logger.info(f"Écriture DOSSERET: {cell_address_left} = X")
-            
-            # Copier la description complète en C10, E10, G10... (même ligne)
+
+            # Copier la description nettoyée en C10, E10, G10... (même ligne)
             cell_address_right = f"{right_col}10"
-            worksheet[cell_address_right] = description
-            logger.info(f"Écriture description DOSSERET: {cell_address_right} = {description[:50]}...")
+            # Nettoyer: normaliser espaces, supprimer après "BASE SOMMIERS"
+            desc_clean = re.sub(r'\s+', ' ', description).strip()
+            # Couper après "BASE SOMMIERS" si présent
+            idx_base = desc_clean.upper().find("BASE SOMMIERS")
+            if idx_base >= 0:
+                desc_clean = desc_clean[:idx_base + len("BASE SOMMIERS")]
+            # Normaliser les espaces autour des "/" dans les dimensions
+            desc_clean = re.sub(r'\s*/\s*', '/', desc_clean)
+            # Supprimer les accents pour uniformiser
+            desc_clean = unicodedata.normalize('NFKD', desc_clean).encode('ASCII', 'ignore').decode('ASCII')
+            worksheet[cell_address_right] = desc_clean
+            logger.info(f"Écriture description DOSSERET: {cell_address_right} = {desc_clean[:50]}...")
         
         # Détecter CHEVET, TIROIR ou NICHE
         if "CHEVET" in desc_upper or "TIROIR" in desc_upper or "NICHE" in desc_upper:
@@ -864,6 +902,8 @@ class ExcelSommierImporter:
 
         desc_upper = description.upper()
         desc_norm = unicodedata.normalize('NFKD', desc_upper).encode('ASCII', 'ignore').decode('ASCII')
+        # Normaliser les espaces multiples (PDF extraction peut créer "MOTORIS EE" ou "TELESCOP IQUE")
+        desc_norm = re.sub(r'\s+', ' ', desc_norm)
 
         # 1. FIXE (pas de relaxation) - normaliser les tirets pour gérer "JUMEAUX - FIXE"
         desc_fixe = desc_norm.replace(" - ", " ").replace("- ", " ").replace(" -", " ")
@@ -872,7 +912,9 @@ class ExcelSommierImporter:
             return "FIXE"
 
         # 2. Relaxation motorisée télescopique → TT embout sur TENON
-        if "TELESCOPIQUE" in desc_norm and ("MOTORISEE" in desc_norm or "MOTORISE" in desc_norm):
+        has_telescopique = "TELESCOPIQUE" in desc_norm or "TELESCOP" in desc_norm
+        has_motorise = "MOTORISEE" in desc_norm or "MOTORISE" in desc_norm or "MOTORIS" in desc_norm
+        if has_telescopique and has_motorise:
             return "TT_TENON"
 
         # 3. Relaxation manuelle → TPR
@@ -880,7 +922,7 @@ class ExcelSommierImporter:
             return "TPR"
 
         # 4. Relaxation motorisée (non télescopique) → TT embout TPR
-        if "MOTORISEE" in desc_norm or "MOTORISE" in desc_norm or "RELAXATION" in desc_norm:
+        if has_motorise or "RELAXATION" in desc_norm:
             return "TT_TPR"
 
         return None
@@ -1281,6 +1323,10 @@ class ExcelSommierImporter:
                 if cell_address.endswith("1") and cell_address[:-1] in [right_col]:
                     value = self.extraire_nom_famille(value)
 
+                # Convertir les valeurs numériques (numéro de commande)
+                if isinstance(value, str) and value.isdigit():
+                    value = int(value)
+
                 worksheet[cell_address] = value
                 logger.info(f"Écriture: {cell_address} = {value}")
 
@@ -1333,12 +1379,15 @@ class ExcelSommierImporter:
         # Utiliser un set pour tracker ce qui a déjà été écrit dans ce bloc pour éviter les doublons
         articles_traites = set()
         articles = config_json.get("articles", [])
+        logger.info(f"write_config_to_block: {len(articles) if isinstance(articles, list) else 0} articles, left={left_col}, right={right_col}")
         if isinstance(articles, list):
             for article in articles:
                 if isinstance(article, dict):
                     description = article.get("description", "")
                     if not description:
                         continue
+                    # Nettoyer le boilerplate PDF de page 2
+                    description = _strip_pdf_boilerplate(description)
                     
                     # Créer un identifiant unique pour cet article (pour éviter les doublons)
                     article_id = f"{article.get('type', '')}_{description[:50]}"
@@ -1364,40 +1413,58 @@ class ExcelSommierImporter:
                     
                     # Détecter et écrire les informations de sommier (JUMEAUX, dimensions)
                     # (seulement pour les articles de sommier, pas pour tous les articles)
-                    if description.upper().startswith("SOMMIER") or description.upper().startswith("SOMMIERS"):
+                    # Gérer aussi "SOMMIER S" (espace due à l'extraction PDF) et le type LLM "sommier"
+                    desc_up = description.upper().lstrip()
+                    is_sommier_article = (
+                        desc_up.startswith("SOMMIER") or
+                        desc_up.startswith("SOMMIERS") or
+                        article.get("type", "").lower() == "sommier"
+                    )
+                    if is_sommier_article:
                         has_sommier_article = True
                         self.ecrire_sommier_excel(worksheet, description, left_col, right_col)
-                        
+
                         # Détecter et écrire le type de sommier (FIXE, MANUEL, MOTORISE)
                         self.ecrire_type_sommier_fixe_manuel_motorise_excel(worksheet, description, left_col, right_col)
-                        
+
                         # Extraire les dimensions du sommier si présent
                         dims = self.extraire_dimensions_sommier(description)
                         if dims:
                             dimensions_sommier = self.formater_dimensions_sommier(dims)
+                        logger.info(f"Article sommier détecté: desc={description[:80]}..., dims={dims}")
                     
                     # Détecter et écrire le type de pieds
                     self.ecrire_type_pieds_excel(worksheet, description, left_col, right_col)
-                    
+
                     # Détecter et écrire LOT DE 2 RAMPES
                     self.ecrire_lot_rampes_excel(worksheet, description, left_col)
+
+                    # Détecter MÉTRAGE PVC ou TISSU → écrire en row 26 (PAREMENTÉ) si PAREMENTÉ déjà détecté
+                    desc_metrage = description.upper()
+                    if "METRAGE" in desc_metrage or "MÉTRAGE" in desc_metrage:
+                        # Extraire le type PVC/TISSU et la référence
+                        match_pvc = re.search(r'(?:METRAGE|MÉTRAGE)\s+(PVC|TISSU)\s+(.+?)(?:\s*\d+\s*/\s*\d+|\s*$)', description, re.IGNORECASE)
+                        if match_pvc:
+                            # Vérifier si PAREMENTÉE est déjà cochée en row 26
+                            cell_pare = f"{left_col}26"
+                            if worksheet[cell_pare].value == "X":
+                                cell_info = f"{right_col}26"
+                                ref_text = match_pvc.group(2).strip()
+                                # Nettoyer: supprimer tirets, parenthèses de fin
+                                ref_text = ref_text.replace('-', '').strip()
+                                ref_text = re.sub(r'\s*\(.*?\)\s*$', '', ref_text).strip()
+                                ref_text = re.sub(r'\s+', ' ', ref_text)  # normaliser espaces
+                                info_text = f"{match_pvc.group(1).upper()} {ref_text}"
+                                worksheet[cell_info] = info_text
+                                logger.info(f"Écriture métrage sur PAREMENTÉ: {cell_info} = {info_text}")
         
         # 2. Chercher dans la description du sommier lui-même (peut contenir des infos sur les pieds)
-        # Vérifier si cette description n'a pas déjà été traitée dans la boucle des articles
+        # Skiper si des articles individuels ont déjà été traités (évite les doublons/écrasements)
+        articles_processed = isinstance(articles, list) and len(articles) > 1
         description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
-        if description_sommier:
-            # Vérifier si cette description a déjà été traitée dans les articles
-            description_already_processed = False
-            if isinstance(articles, list):
-                for article in articles:
-                    if isinstance(article, dict):
-                        article_desc = article.get("description", "")
-                        if article_desc == description_sommier:
-                            description_already_processed = True
-                            break
-            
-            # Si la description n'a pas été traitée dans les articles, la traiter maintenant
-            if not description_already_processed:
+        if description_sommier and not articles_processed:
+            description_sommier = _strip_pdf_boilerplate(description_sommier)
+            if True:
                 # Détecter si c'est un article de pieds
                 if self.detecter_type_pieds(description_sommier) or "PIEDS" in description_sommier.upper():
                     has_pieds = True
@@ -1447,33 +1514,100 @@ class ExcelSommierImporter:
                 desc_pieds = f"{type_pied}"
                 self.ecrire_type_pieds_excel(worksheet, desc_pieds, left_col, right_col)
         
+        # Chercher les dimensions LITERIE dans les articles (format "LITERIE ... 160/200/64 CM")
+        # Pour row 7, on utilise les dimensions LITERIE (taille du lit), pas les dimensions structure
+        dimensions_literie = None
+        if isinstance(articles, list):
+            for article in articles:
+                if isinstance(article, dict):
+                    desc = article.get("description", "")
+                    if desc and "LITERIE" in desc.upper():
+                        dims_lit = self.extraire_dimensions_sommier(desc)
+                        if dims_lit:
+                            # Prendre largeur/longueur LITERIE mais hauteur depuis SOMMIER structure si disponible
+                            hauteur_sommier = None
+                            # Chercher d'abord dans les articles de type sommier (plus fiable)
+                            if isinstance(articles, list):
+                                for art in articles:
+                                    if isinstance(art, dict):
+                                        d = art.get("description", "")
+                                        d_up = d.upper().lstrip() if d else ""
+                                        if d_up.startswith("SOMMIER") or art.get("type", "").lower() == "sommier":
+                                            d = _strip_pdf_boilerplate(d)
+                                            ds = self.extraire_dimensions_sommier(d)
+                                            if ds:
+                                                hauteur_sommier = ds[2]
+                                                break
+                            dimensions_literie = self.formater_dimensions_sommier((dims_lit[0], dims_lit[1], hauteur_sommier if hauteur_sommier else dims_lit[2]))
+                            logger.info(f"Dimensions LITERIE trouvées: {dims_lit} → {dimensions_literie}")
+                            break
+        # Si pas de dimensions LITERIE, aussi chercher dans description config_json
+        if not dimensions_literie:
+            desc_literie = config_json.get("dimension_literie", "") or config_json.get("description_literie", "")
+            if desc_literie:
+                dims_lit = self.extraire_dimensions_sommier(desc_literie)
+                if dims_lit:
+                    dimensions_literie = self.formater_dimensions_sommier(dims_lit)
+
+        # Utiliser dimensions LITERIE pour row 6/7 si disponibles, sinon fallback sur dimensions SOMMIER
+        dimensions_pour_row = dimensions_literie or dimensions_sommier
+
         # Écrire les dimensions du sommier selon la présence de pieds
         dimensions_originales_tuple = None
-        if dimensions_sommier:
+        if dimensions_pour_row:
             if has_pieds:
                 # Si des pieds sont trouvés : écrire en C7 et "X" en B7
                 cell_address_left = f"{left_col}7"
                 cell_address_right = f"{right_col}7"
                 worksheet[cell_address_left] = "X"
-                worksheet[cell_address_right] = dimensions_sommier
-                logger.info(f"Écriture dimensions avec pieds: {cell_address_left} = X, {cell_address_right} = {dimensions_sommier}")
+                worksheet[cell_address_right] = dimensions_pour_row
+                logger.info(f"Écriture dimensions avec pieds: {cell_address_left} = X, {cell_address_right} = {dimensions_pour_row}")
             else:
                 # Sinon : écrire en C6 et "X" en B6
                 cell_address_left = f"{left_col}6"
                 cell_address_right = f"{right_col}6"
                 worksheet[cell_address_left] = "X"
-                worksheet[cell_address_right] = dimensions_sommier
-                logger.info(f"Écriture dimensions sans pieds: {cell_address_left} = X, {cell_address_right} = {dimensions_sommier}")
+                worksheet[cell_address_right] = dimensions_pour_row
+                logger.info(f"Écriture dimensions sans pieds: {cell_address_left} = X, {cell_address_right} = {dimensions_pour_row}")
             
-            # Extraire les dimensions originales pour le calcul des dimensions modifiées
+            # Extraire les dimensions originales (STRUCTURE) pour le calcul des dimensions modifiées
+            # Chercher d'abord dans les articles SOMMIER spécifiques (éviter les dims LITERIE)
+            if isinstance(articles, list):
+                for article in articles:
+                    if isinstance(article, dict):
+                        desc = article.get("description", "")
+                        desc_up = desc.upper().lstrip() if desc else ""
+                        if desc_up.startswith("SOMMIER") or article.get("type", "").lower() == "sommier":
+                            desc = _strip_pdf_boilerplate(desc)
+                            dims = self.extraire_dimensions_sommier(desc)
+                            if dims:
+                                dimensions_originales_tuple = dims
+                                break
+            # Fallback: description combinée
+            if not dimensions_originales_tuple:
+                desc_combined = config_json.get("description", "") or config_json.get("article_description", "")
+                if desc_combined:
+                    desc_combined = _strip_pdf_boilerplate(desc_combined)
+                    dims = self.extraire_dimensions_sommier(desc_combined)
+                    if dims:
+                        dimensions_originales_tuple = dims
+
+        # Calculer et écrire les dimensions modifiées si applicable
+        # Chercher d'abord dans les articles de type sommier (éviter la description combinée)
+        description_sommier = None
+        if isinstance(articles, list):
+            for article in articles:
+                if isinstance(article, dict):
+                    desc = article.get("description", "")
+                    desc_up = desc.upper().lstrip() if desc else ""
+                    if desc_up.startswith("SOMMIER") or article.get("type", "").lower() == "sommier":
+                        description_sommier = _strip_pdf_boilerplate(desc)
+                        break
+        # Fallback: description combinée
+        if not description_sommier:
             description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
             if description_sommier:
-                dims = self.extraire_dimensions_sommier(description_sommier)
-                if dims:
-                    dimensions_originales_tuple = dims
-        
-        # Calculer et écrire les dimensions modifiées si applicable
-        description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
+                description_sommier = _strip_pdf_boilerplate(description_sommier)
         if description_sommier and dimensions_originales_tuple:
             dimensions_modifiees = self.calculer_dimensions_modifiees(
                 worksheet, description_sommier, left_col, right_col, dimensions_originales_tuple

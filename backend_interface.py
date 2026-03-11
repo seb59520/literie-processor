@@ -19,7 +19,7 @@ import time
 
 # Import des modules backend
 from backend.date_utils import get_week_dates
-from backend.pre_import_utils import creer_pre_import, valider_pre_import
+from backend.pre_import_utils import creer_pre_import, creer_pre_import_sommier, valider_pre_import
 from backend.main import call_llm
 from backend.excel_import_utils import ExcelMatelasImporter
 from backend.file_validation import FileValidator, validate_pdf_file
@@ -427,7 +427,7 @@ class BackendInterface:
                         
                         # Extraction des données client
                         from backend.client_utils import extraire_donnees_client
-                        donnees_client = extraire_donnees_client(llm_data)
+                        donnees_client = extraire_donnees_client(llm_data, raw_text=text)
                         
                         # Extraction des articles
                         for key in llm_data:
@@ -520,10 +520,13 @@ class BackendInterface:
                                 contient_dosseret_tete, mots_operation_list, fermeture_liaison
                             ) if configurations_matelas else []
                             
-                            # Créer le pré-import pour les sommiers
-                            pre_import_data_sommiers = self._creer_pre_import_sommiers(
-                                configurations_sommiers, donnees_client, 
-                                contient_dosseret_tete, mots_operation_list
+                            # Créer le pré-import pour les sommiers (avec tous les articles pour les détections)
+                            pre_import_data_sommiers = creer_pre_import_sommier(
+                                configurations_sommiers,
+                                donnees_client,
+                                mots_operation_trouves=mots_operation_list,
+                                articles_llm=articles_llm,
+                                contient_dosseret_tete=contient_dosseret_tete
                             ) if configurations_sommiers else []
                             
                             # Combiner les deux pré-imports
@@ -947,6 +950,7 @@ Réponds uniquement avec le JSON valide, sans explication ni phrase autour."""
                     "lundi": get_week_dates(semaine_prod, annee_prod)[0],
                     "vendredi": get_week_dates(semaine_prod, annee_prod)[1],
                     "commande_client": commande_client,
+                    "description": description,  # Ajouter la description pour les détections
                     # Nouvelles caractéristiques détectées
                     "sommier_dansunlit": caracteristiques["sommier_dansunlit"],
                     "sommier_pieds": caracteristiques["sommier_pieds"],
@@ -1039,90 +1043,6 @@ Réponds uniquement avec le JSON valide, sans explication ni phrase autour."""
         
         # Sinon, utiliser la détection normale
         return detecter_poignees(description)
-    
-    def _creer_pre_import_sommiers(self, configurations_sommiers: List[Dict], donnees_client: Dict,
-                                  contient_dosseret_tete: bool, mots_operation_list: List[str]) -> List[Dict]:
-        """
-        Crée le pré-import pour les sommiers
-        """
-        pre_import_data = []
-        
-        for config in configurations_sommiers:
-            # Créer les données de pré-import pour un sommier
-            pre_import_item = {
-                # Données client (mêmes clés que les matelas)
-                "Client_D1": donnees_client.get('nom', ''),
-                "Adresse_D3": donnees_client.get('adresse', ''),
-                "numero_D2": config.get('commande_client', ''),  # Harmonisé avec les matelas
-                # Champs commande et dates (mêmes clés que les matelas)
-                "semaine_D5": config.get('semaine_annee', ''),
-                "lundi_D6": config.get('lundi', ''),
-                "vendredi_D7": config.get('vendredi', ''),
-                # Données sommier
-                "Type_Sommier_D20": config.get('type_sommier', ''),
-                "Materiau_D25": config.get('materiau', ''),
-                "Hauteur_D30": str(config.get('hauteur', '')),
-                "Dimensions_D35": self._calculer_dimensions_sommiers(config.get('dimensions', {})),
-                "Dimension_Sommier_D36": config.get('dimension_sommier', ''),  # Nouveau champ
-                "Type_Relaxation_Sommier_D37": config.get('type_relaxation_sommier', ''),  # Nouveau champ
-                "Type_Telecommande_Sommier_D38": config.get('type_telecommande_sommier', ''),  # Nouveau champ
-                "Soufflet_Mousse_D39": config.get('soufflet_mousse', ''),  # Nouveau champ
-                "Facon_Moderne_D40": config.get('facon_moderne', ''),  # Nouveau champ
-                "Tapissier_A_Lattes_D41": config.get('tapissier_a_lattes', ''),  # Nouveau champ
-                "Lattes_Francaises_D42": config.get('lattes_francaises', ''),  # Nouveau champ
-                "Quantite_D43": str(config.get('quantite', 1)),
-                # Nouvelles caractéristiques
-                "Sommier_DansUnLit_D45": config.get('sommier_dansunlit', 'NON'),
-                "Sommier_Pieds_D50": config.get('sommier_pieds', 'NON'),
-                # Champs opérations (ajoutés pour harmoniser avec les matelas)
-                "emporte_client_C57": "X" if "ENLEVEMENT" in mots_operation_list else "",
-                "fourgon_C58": "X" if "LIVRAISON" in mots_operation_list else "",
-                "transporteur_C59": "X" if "EXPEDITION" in mots_operation_list else "",
-                # Données de production
-                "semaine_annee": config.get('semaine_annee', ''),
-                "lundi": config.get('lundi', ''),
-                "vendredi": config.get('vendredi', ''),
-                "commande_client": config.get('commande_client', ''),
-                # Type d'article
-                "type_article": "sommier",
-                "sommier_index": config.get('sommier_index', 0)
-            }
-            # Ajout des options_sommier dans le pré-import (X si OUI, sinon '')
-            options = config.get('options_sommier', {})
-            options_mapping = {
-                'butees_laterales': 'Butees_Laterales_D60',
-                'butees_pieds': 'Butees_Pieds_D61',
-                'solidarisation': 'Solidarisation_D62',
-                'demi_corbeille': 'Demi_Corbeille_D63',
-                'profile': 'Profile_D64',
-                'renforces': 'Renforces_D65',
-                'genou_moins': 'Genou_Moins_D66',
-                'tronc_plus': 'Tronc_Plus_D67',
-                'calles': 'Calles_D68',
-                'rampes': 'Rampes_D69',
-                'autre': 'Autre_D70',
-                'platine_reunion': 'Platine_Reunion_D71',
-                'pieds_centraux': 'Pieds_Centraux_D72',
-                'patins_feutre': 'Patins_Feutre_D73',
-                'patins_carrelage': 'Patins_Carrelage_D74',
-                'patins_teflon': 'Patins_Teflon_D75',
-                'finition_multiplis': 'Finition_Multiplis_D76',
-                'finition_90mm': 'Finition_90mm_D77',
-                'finition_paremente': 'Finition_Paremente_D78',
-                'finition_multiplis_tv': 'Finition_Multiplis_TV_D79',
-                'finition_multiplis_l': 'Finition_Multiplis_L_D80',
-                'finition_chene': 'Finition_Chene_D81',
-                'finition_frene_tv': 'Finition_Frene_TV_D82',
-                'finition_frene_l': 'Finition_Frene_L_D83'
-            }
-            for opt, champ in options_mapping.items():
-                pre_import_item[champ] = 'X' if options.get(opt) == 'OUI' else ''
-            # Supprimer pieds_segmentes du pré-import s'il existe
-            if 'pieds_segmentes' in pre_import_item:
-                del pre_import_item['pieds_segmentes']
-            pre_import_data.append(pre_import_item)
-        
-        return pre_import_data
     
     def _ajouter_dimensions_housse(self, config: Dict):
         """Ajoute les dimensions housse selon le noyau"""
@@ -1256,34 +1176,6 @@ Réponds uniquement avec le JSON valide, sans explication ni phrase autour."""
             self.logger.error(f"Erreur lors du calcul des dimensions housse: {e}")
             config["dimension_housse"] = f"Erreur: {e}"
     
-    def _calculer_dimensions_sommiers(self, dimensions: Dict) -> str:
-        """Calcule les dimensions des sommiers selon les spécifications"""
-        try:
-            import sys
-                
-            # Ajouter le répertoire backend au path
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            backend_dir = os.path.join(script_dir, "backend")
-            if backend_dir not in sys.path:
-                sys.path.insert(0, backend_dir)
-            
-            from backend.dimensions_sommiers import calculer_dimensions_sommiers
-            
-            if not dimensions:
-                return ""
-            
-            resultat = calculer_dimensions_sommiers(dimensions)
-            return resultat if resultat else ""
-            
-        except Exception as e:
-            self.logger.error(f"Erreur lors du calcul des dimensions sommiers: {e}")
-            # Fallback vers l'ancien format si erreur
-            if dimensions:
-                largeur = dimensions.get('largeur', '')
-                longueur = dimensions.get('longueur', '')
-                return f"{largeur}x{longueur}" if largeur and longueur else ""
-            return ""
-    
     def _calculer_dimension_literie(self, config: Dict):
         """Calcule la dimension literie"""
         import math
@@ -1388,14 +1280,60 @@ Réponds uniquement avec le JSON valide, sans explication ni phrase autour."""
                 except (json.JSONDecodeError, AttributeError) as e3:
                     self.logger.info(f"DEBUG: Parsing après suppression backticks échoué: {e3}")
                     
-                    # Si c'est une erreur de chaîne non terminée, essaie d'extraire le JSON valide
-                    if "Unterminated string" in str(e3) or "Expecting value" in str(e3):
-                        self.logger.info(f"DEBUG: Tentative de correction des chaînes non terminées")
+                    # Tentative de correction des erreurs de syntaxe JSON courantes
+                    try:
+                        import re
+                        # Supprime les backticks
+                        cleaned_text = re.sub(r'```(?:json)?\s*', '', raw_text)
+                        cleaned_text = re.sub(r'\s*```', '', cleaned_text)
+                        
+                        # Correction des erreurs de virgule manquante
+                        # Pattern: } suivi de " ou { sans virgule
+                        cleaned_text = re.sub(r'\}\s*"', r'}, "', cleaned_text)
+                        cleaned_text = re.sub(r'\}\s*\{', r'}, {', cleaned_text)
+                        # Pattern: ] suivi de " ou { sans virgule
+                        cleaned_text = re.sub(r'\]\s*"', r'], "', cleaned_text)
+                        cleaned_text = re.sub(r'\]\s*\{', r'], {', cleaned_text)
+                        # Pattern: nombre suivi de " sans virgule
+                        cleaned_text = re.sub(r'(\d+)\s*"', r'\1, "', cleaned_text)
+                        # Pattern: true/false/null suivi de " sans virgule
+                        cleaned_text = re.sub(r'(true|false|null)\s*"', r'\1, "', cleaned_text)
+                        cleaned_text = re.sub(r'(true|false|null)\s*\{', r'\1, {', cleaned_text)
+                        
+                        json.loads(cleaned_text)
+                        self.logger.info(f"DEBUG: Parsing après correction syntaxe réussi!")
+                        return cleaned_text
+                    except (json.JSONDecodeError, AttributeError) as e_correction:
+                        self.logger.info(f"DEBUG: Correction syntaxe échouée: {e_correction}")
+                    
+                    # Si c'est une erreur de chaîne non terminée ou de virgule manquante, essaie d'extraire le JSON valide
+                    if "Unterminated string" in str(e3) or "Expecting value" in str(e3) or "Expecting ',' delimiter" in str(e3):
+                        self.logger.info(f"DEBUG: Tentative de correction des erreurs JSON (chaînes non terminées ou virgules manquantes)")
                         try:
                             import re
                             # Supprime les backticks
                             cleaned_text = re.sub(r'```(?:json)?\s*', '', raw_text)
                             cleaned_text = re.sub(r'\s*```', '', cleaned_text)
+                            
+                            # Correction des virgules manquantes avant d'extraire
+                            # Pattern: } suivi de " ou { sans virgule
+                            cleaned_text = re.sub(r'\}\s*"', r'}, "', cleaned_text)
+                            cleaned_text = re.sub(r'\}\s*\{', r'}, {', cleaned_text)
+                            # Pattern: ] suivi de " ou { sans virgule
+                            cleaned_text = re.sub(r'\]\s*"', r'], "', cleaned_text)
+                            cleaned_text = re.sub(r'\]\s*\{', r'], {', cleaned_text)
+                            # Pattern: nombre suivi de " sans virgule (mais pas dans une chaîne)
+                            # Pattern: true/false/null suivi de " sans virgule
+                            cleaned_text = re.sub(r'(true|false|null)\s*"', r'\1, "', cleaned_text)
+                            cleaned_text = re.sub(r'(true|false|null)\s*\{', r'\1, {', cleaned_text)
+                            
+                            # Essaie de parser après correction
+                            try:
+                                json.loads(cleaned_text)
+                                self.logger.info(f"DEBUG: Parsing réussi après correction des virgules!")
+                                return cleaned_text
+                            except json.JSONDecodeError:
+                                pass  # Continue avec l'extraction jusqu'à l'erreur
                             
                             # Essaie d'extraire le JSON jusqu'à la première erreur
                             # Cherche la position de l'erreur

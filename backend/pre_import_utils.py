@@ -1,8 +1,126 @@
 import logging
+import math
 import re
 import unicodedata
+from collections import defaultdict
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+DIMENSION_PATTERN = re.compile(r"(\d{2,3})\s*/\s*(\d{2,3})\s*/\s*(\d{2,3})")
+TETE_PATTERN = re.compile(r"T[ÊE]TE", re.IGNORECASE)
+DOS_PATTERN = re.compile(r"DOS+ERET", re.IGNORECASE)
+CHEVET_PATTERN = re.compile(r"CHEVET", re.IGNORECASE)
+PIEDS_CUBIQUE_PATTERN = re.compile(r"PIEDS?\s+CUBIQUE", re.IGNORECASE)
+PIEDS_CYLINDRE_PATTERN = re.compile(r"PIEDS?\s+CYLINDRE", re.IGNORECASE)
+PLATINE_PATTERN = re.compile(r"PLATINE\s+DE\s+RE", re.IGNORECASE)
+PATIN_FEUTRE_PATTERN = re.compile(r"PATINS?\s+FEUTRE", re.IGNORECASE)
+PATIN_CARRELAGE_PATTERN = re.compile(r"PATINS?\s+CARRELAGE", re.IGNORECASE)
+PATIN_TEFLON_PATTERN = re.compile(r"PATINS?\s+T[ÉE]FLON", re.IGNORECASE)
+MATERIAU_PATTERNS = {
+    "FRÊNE": re.compile(r"FR[ÊE]NE", re.IGNORECASE),
+    "HÊTRE": re.compile(r"H[ÊE]TRE", re.IGNORECASE),
+    "TAPISSIER": re.compile(r"TAPISSIER", re.IGNORECASE),
+    "MÉTAL": re.compile(r"M[ÉE]TAL|ACIER", re.IGNORECASE),
+}
+
+
+def _normalize_article_text(text: str) -> str:
+    if not text:
+        return ""
+    return unicodedata.normalize("NFKD", text).replace("\n", " ")
+
+
+def _extract_dimension_tuple(text: str) -> Optional[Tuple[int, int, int]]:
+    if not text:
+        return None
+    match = DIMENSION_PATTERN.search(text)
+    if not match:
+        return None
+    try:
+        return tuple(int(match.group(i)) for i in range(1, 4))
+    except ValueError:
+        return None
+
+
+def _dimension_tuple_to_mm(values: Tuple[int, int, int]) -> Dict[str, int]:
+    largeur, longueur, hauteur = values
+    return {"largeur": largeur, "longueur": longueur, "hauteur": hauteur}
+
+
+def _format_dimensions_mm(values: Dict[str, int]) -> str:
+    if not values:
+        return ""
+    return f"{values['largeur'] * 10} X {values['longueur'] * 10} X {values['hauteur'] * 10}"
+
+
+def _detect_relaxation(text: str) -> str:
+    if "RELAXATION" in text:
+        return "RELAXATION"
+    if "MANUEL" in text:
+        return "MANUEL"
+    if "MOTORIS" in text or "MOTORISE" in text:
+        return "MOTORISE"
+    if "FIXE" in text:
+        return "FIXE"
+    return ""
+
+
+def _detect_telecommande(text: str) -> str:
+    if "RADIO" in text:
+        return "TELECOMMANDE SANS FIL"
+    if "TELECOMMAND" in text:
+        return "TELECOMMANDE FILAIRE"
+    return "NON"
+
+
+def _detect_materiau(text: str) -> str:
+    for name, pattern in MATERIAU_PATTERNS.items():
+        if pattern.search(text):
+            return name
+    return ""
+
+
+def _extract_options_from_texts(texts: List[str]) -> Dict[str, str]:
+    options = defaultdict(str)
+    accessoires = []
+    for raw in texts:
+        normalized = _normalize_article_text(raw)
+        upper = normalized.upper()
+        if TETE_PATTERN.search(upper):
+            accessoires.append({"type": "tete", "description": raw.strip()})
+        if DOS_PATTERN.search(upper):
+            accessoires.append({"type": "dosseret", "description": raw.strip()})
+        if CHEVET_PATTERN.search(upper):
+            accessoires.append({"type": "chevet", "description": raw.strip()})
+        if PIEDS_CUBIQUE_PATTERN.search(upper):
+            options["pieds_cubique"] = "OUI"
+            accessoires.append({"type": "pieds_cubique", "description": raw.strip()})
+        if PIEDS_CYLINDRE_PATTERN.search(upper):
+            options["pieds_cylindre"] = "OUI"
+            accessoires.append({"type": "pieds_cylindre", "description": raw.strip()})
+        if "PIEDS CENTRAUX" in upper or "PIED CENTRAL" in upper:
+            options["pieds_centraux"] = "OUI"
+        if PLATINE_PATTERN.search(upper):
+            options["platine_reunion"] = "OUI"
+        if PATIN_FEUTRE_PATTERN.search(upper):
+            options["patins_feutre"] = "OUI"
+        if PATIN_CARRELAGE_PATTERN.search(upper):
+            options["patins_carrelage"] = "OUI"
+        if PATIN_TEFLON_PATTERN.search(upper):
+            options["patins_teflon"] = "OUI"
+        if "STRUCTURE PAREMENT" in upper or "MÉTRAGE" in upper:
+            options["finition_paremente"] = "OUI"
+    return {"options": dict(options), "accessoires": accessoires}
+
+
+def _merge_options(options_a: Dict[str, str], options_b: Dict[str, str]) -> Dict[str, str]:
+    merged = dict(options_a)
+    for key, value in options_b.items():
+        if value:
+            merged[key] = value
+    return merged
 
 def extract_mr_mme_from_description(description):
     """
@@ -171,177 +289,419 @@ def create_mr_mme_with_cote(config):
     else:
         return ""
 
+class PreImportBuilder:
+    """Construit les structures de pré-import pour matelas et sommiers."""
+
+    def __init__(self, logger_instance: Optional[logging.Logger] = None):
+        self.logger = logger_instance or logging.getLogger(__name__)
+
+    def build_matelas_pre_import(
+        self,
+        configurations_matelas: List[Dict],
+        donnees_client: Dict,
+        contient_dosseret_tete: bool = False,
+        mots_operation_trouves: Optional[List[str]] = None,
+        fermeture_liaison: bool = False,
+    ) -> List[Dict]:
+        pre_import_data = []
+
+        if not configurations_matelas:
+            self.logger.warning("configurations_matelas est vide ou None")
+            return []
+
+        if not donnees_client:
+            self.logger.warning("donnees_client est vide ou None")
+            return []
+
+        if not isinstance(configurations_matelas, list):
+            self.logger.warning(f"configurations_matelas n'est pas une liste: {type(configurations_matelas)}")
+            return []
+
+        if not isinstance(donnees_client, dict):
+            self.logger.warning(f"donnees_client n'est pas un dictionnaire: {type(donnees_client)}")
+            return []
+
+        try:
+            for i, config in enumerate(configurations_matelas):
+                if not config or not isinstance(config, dict):
+                    self.logger.warning(f"Configuration {i} invalide: {config}")
+                    continue
+
+                quantite = config.get("quantite", 1)
+                housse = config.get("housse", "")
+                matiere_housse = config.get("matiere_housse", "")
+                poignees = config.get("poignees", "")
+                noyau = config.get("noyau", "")
+                fermete = config.get("fermete", "")
+                surmatelas = config.get("surmatelas", False)
+                mots_operations = mots_operation_trouves or []
+
+                dimensions = config.get("dimensions", {})
+                if not isinstance(dimensions, dict):
+                    dimensions = {}
+                largeur = dimensions.get("largeur", "")
+                longueur = dimensions.get("longueur", "")
+
+                dimension_housse = config.get("dimension_housse", "")
+                dimension_housse_longueur = config.get("dimension_housse_longueur", "")
+                decoupe_noyau = config.get("decoupe_noyau", "")
+                dimension_literie = config.get("dimension_literie", "")
+
+                pre_import_item = {
+                    "Client_D1": donnees_client.get("nom", ""),
+                    "Adresse_D3": donnees_client.get("adresse", ""),
+                    "MrMME_D4": create_mr_mme_with_cote(config),
+                    "numero_D2": config.get("commande_client", ""),
+                    "semaine_D5": config.get("semaine_annee", ""),
+                    "lundi_D6": config.get("lundi", ""),
+                    "vendredi_D7": config.get("vendredi", ""),
+                    "Hauteur_D22": config.get("hauteur", ""),
+                    "dosseret_tete_C8": "X" if contient_dosseret_tete else "",
+                    "jumeaux_C10": "X" if quantite == 2 else "",
+                    "jumeaux_D10": dimension_literie if quantite == 2 else "",
+                    "1piece_C11": "X" if quantite == 1 else "",
+                    "1piece_D11": dimension_literie if quantite == 1 else "",
+                    "HSimple_polyester_C13": "X" if housse == "SIMPLE" and matiere_housse == "POLYESTER" else "",
+                    "HSimple_tencel_C14": "X" if housse == "SIMPLE" and matiere_housse == "TENCEL" else "",
+                    "HSimple_autre_C15": "X" if housse == "SIMPLE" and matiere_housse == "AUTRE" else "",
+                    "Hmat_polyester_C17": "X" if housse in ["MATELASSÉE", "MATELASSEE"] and matiere_housse == "POLYESTER" else "",
+                    "Hmat_tencel_C18": "X" if housse in ["MATELASSÉE", "MATELASSEE"] and matiere_housse == "TENCEL" else "",
+                    "Hmat_luxe3D_C19": "X" if housse in ["MATELASSÉE", "MATELASSEE"] and matiere_housse == "TENCEL LUXE 3D" else "",
+                    "poignees_C20": "X" if poignees == "OUI" else "",
+                    "dimension_housse_D23": dimension_housse,
+                    "longueur_D24": dimension_housse_longueur,
+                    "decoupe_noyau_D25": decoupe_noyau,
+                    "LN_Ferme_C28": "X" if noyau == "LATEX NATUREL" and fermete == "FERME" else "",
+                    "LN_Medium_C29": "X" if noyau == "LATEX NATUREL" and fermete == "MEDIUM" else "",
+                    "LM7z_Ferme_C30": "X" if noyau == "LATEX MIXTE 7 ZONES" and fermete == "FERME" else "",
+                    "LM7z_Medium_C31": "X" if noyau == "LATEX MIXTE 7 ZONES" and fermete == "MEDIUM" else "",
+                    "LM3z_Ferme_C32": "X" if noyau == "LATEX MIXTE 3 ZONES" and fermete == "FERME" else "",
+                    "LM3z_Medium_C33": "X" if noyau == "LATEX MIXTE 3 ZONES" and fermete == "MEDIUM" else "",
+                    "MV_Ferme_C34": "X" if noyau == "MOUSSE VISCO" and fermete == "FERME" else "",
+                    "MV_Medium_C35": "X" if noyau == "MOUSSE VISCO" and fermete == "MEDIUM" else "",
+                    "MV_Confort_C36": "X" if noyau == "MOUSSE VISCO" and fermete == "CONFORT" else "",
+                    "MR_Ferme_C37": "X" if "MOUSSE RAINUREE" in noyau and fermete == "FERME" else "",
+                    "MR_Medium_C38": "X" if "MOUSSE RAINUREE" in noyau and fermete == "MEDIUM" else "",
+                    "MR_Confort_C39": "X" if "MOUSSE RAINUREE" in noyau and fermete == "CONFORT" else "",
+                    "SL43_Ferme_C40": "X" if noyau == "SELECT 43" and fermete == "FERME" else "",
+                    "SL43_Medium_C41": "X" if noyau == "SELECT 43" and fermete == "MEDIUM" else "",
+                    "LR_Ferme_C32": "X" if noyau == "LATEX RENFORCE" and fermete == "FERME" else "",
+                    "LR_Medium_C33": "X" if noyau == "LATEX RENFORCE" and fermete == "MEDIUM" else "",
+                    "LR_Confort_C44": "X" if noyau == "LATEX RENFORCE" and fermete == "CONFORT" else "",
+                    "Surmatelas_C45": "X" if surmatelas else "",
+                    "FDL_C51": "X" if fermeture_liaison else "",
+                    "emporte_client_C57": "X" if "ENLEVEMENT" in mots_operations else "",
+                    "fourgon_C58": "X" if "LIVRAISON" in mots_operations else "",
+                    "transporteur_C59": "X" if "EXPEDITION" in mots_operations else "",
+                    "matelas_index": config.get("matelas_index", i + 1),
+                    "noyau": config.get("noyau", ""),
+                    "quantite": config.get("quantite", 1)
+                }
+
+                dimension_brute = f"{largeur} x {longueur}" if largeur and longueur else ""
+
+                if pre_import_item["HSimple_polyester_C13"] == "X":
+                    pre_import_item["HSimple_polyester_D13"] = self._format_dimension_with_quantity(dimension_brute, quantite)
+                if pre_import_item["HSimple_tencel_C14"] == "X":
+                    pre_import_item["HSimple_tencel_D14"] = self._format_dimension_with_quantity(dimension_brute, quantite)
+                if pre_import_item["HSimple_autre_C15"] == "X":
+                    pre_import_item["HSimple_autre_D15"] = self._format_dimension_with_quantity(dimension_brute, quantite)
+                if pre_import_item["Hmat_polyester_C17"] == "X":
+                    pre_import_item["Hmat_polyester_D17"] = self._format_dimension_with_quantity(dimension_brute, quantite)
+                if pre_import_item["Hmat_tencel_C18"] == "X":
+                    pre_import_item["Hmat_tencel_D18"] = self._format_dimension_with_quantity(dimension_brute, quantite)
+                if pre_import_item["Hmat_luxe3D_C19"] == "X":
+                    pre_import_item["Hmat_luxe3D_D19"] = self._format_dimension_with_quantity(dimension_brute, quantite)
+
+                pre_import_data.append(pre_import_item)
+                self.logger.info(f"Pré-import créé pour matelas {i + 1}: {pre_import_item}")
+
+            self.logger.info(f"Pré-import créé avec succès: {len(pre_import_data)} éléments")
+            return pre_import_data
+
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la création du pré-import: {e}")
+            return []
+
+    def build_sommier_pre_import(
+        self,
+        configurations_sommiers: List[Dict],
+        donnees_client: Dict,
+        mots_operation_list: Optional[List[str]] = None,
+        articles_llm: Optional[List[Dict]] = None,
+        contient_dosseret_tete: bool = False,  # Conservé pour compatibilité future
+    ) -> List[Dict]:
+        pre_import_data = []
+
+        if not configurations_sommiers:
+            self.logger.warning("configurations_sommiers est vide ou None")
+            return []
+
+        if not donnees_client:
+            self.logger.warning("donnees_client est vide ou None")
+            return []
+
+        if not isinstance(configurations_sommiers, list):
+            self.logger.warning(f"configurations_sommiers n'est pas une liste: {type(configurations_sommiers)}")
+            return []
+
+        if not isinstance(donnees_client, dict):
+            self.logger.warning(f"donnees_client n'est pas un dictionnaire: {type(donnees_client)}")
+            return []
+
+        default_articles = articles_llm or []
+
+        try:
+            for i, config in enumerate(configurations_sommiers):
+                if not config or not isinstance(config, dict):
+                    self.logger.warning(f"Configuration sommier {i} invalide: {config}")
+                    continue
+                config_mots_operations = config.get('mots_operation_trouves') or []
+                mots_operation = config_mots_operations or mots_operation_list or []
+                article_payload = config.get('articles') or default_articles
+
+                dimension_calculee = config.get('dimension_sommier') or self._calculer_dimensions_sommiers(config.get('dimensions', {}))
+                pre_import_item = {
+                    "Client_D1": donnees_client.get('nom', ''),
+                    "Adresse_D3": donnees_client.get('adresse', ''),
+                    "numero_D2": config.get('commande_client', ''),
+                    "semaine_D5": config.get('semaine_annee', ''),
+                    "lundi_D6": config.get('lundi', ''),
+                    "vendredi_D7": config.get('vendredi', ''),
+                    "Type_Sommier_D20": config.get('type_sommier', ''),
+                    "Materiau_D25": config.get('materiau', ''),
+                    "Hauteur_D30": str(config.get('hauteur', '')),
+                    "Dimensions_D35": dimension_calculee or '',
+                    "Dimension_Sommier_D36": dimension_calculee or '',
+                    "Type_Relaxation_Sommier_D37": config.get('type_relaxation_sommier', ''),
+                    "Type_Telecommande_Sommier_D38": config.get('type_telecommande_sommier', ''),
+                    "Soufflet_Mousse_D39": config.get('soufflet_mousse', ''),
+                    "Facon_Moderne_D40": config.get('facon_moderne', ''),
+                    "Tapissier_A_Lattes_D41": config.get('tapissier_a_lattes', ''),
+                    "Lattes_Francaises_D42": config.get('lattes_francaises', ''),
+                    "Quantite_D43": str(config.get('quantite', 1)),
+                    "Sommier_DansUnLit_D45": config.get('sommier_dansunlit', 'NON'),
+                    "Sommier_Pieds_D50": config.get('sommier_pieds', 'NON'),
+                    "emporte_client_C57": "X" if "ENLEVEMENT" in mots_operation else "",
+                    "fourgon_C58": "X" if "LIVRAISON" in mots_operation else "",
+                    "transporteur_C59": "X" if "EXPEDITION" in mots_operation else "",
+                    "semaine_annee": config.get('semaine_annee', ''),
+                    "lundi": config.get('lundi', ''),
+                    "vendredi": config.get('vendredi', ''),
+                    "commande_client": config.get('commande_client', ''),
+                    "type_article": "sommier",
+                    "sommier_index": config.get('sommier_index', i + 1),
+                    "articles": article_payload
+                }
+
+                description_sommier = config.get('description', '')
+                pre_import_item["description"] = description_sommier
+                pre_import_item["MrMME_D4"] = create_mr_mme_with_cote(config)
+
+                options = config.get('options_sommier', {})
+                self._apply_sommier_options(pre_import_item, options, description_sommier)
+
+                pre_import_data.append(pre_import_item)
+                self.logger.info(f"Pré-import sommier créé pour sommier {i + 1}: {pre_import_item}")
+
+            self.logger.info(f"Pré-import sommier créé avec succès: {len(pre_import_data)} éléments")
+            return pre_import_data
+
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la création du pré-import sommier: {e}")
+            return []
+
+    def _format_dimension_with_quantity(self, dimension: str, quantite) -> str:
+        if quantite and quantite > 1 and dimension:
+            return f"{quantite} x ({dimension})"
+        return dimension
+
+    def _calculer_dimensions_sommiers(self, dimensions: Dict) -> str:
+        if not dimensions:
+            return ""
+        try:
+            from backend.dimensions_sommiers import calculer_dimensions_sommiers
+            resultat = calculer_dimensions_sommiers(dimensions)
+            return resultat if resultat else ""
+        except Exception as e:
+            self.logger.error(f"Erreur lors du calcul des dimensions sommiers: {e}")
+            return ""
+
+    def _apply_sommier_options(self, pre_import_item: Dict, options: Dict, description_sommier: str) -> None:
+        options_mapping = {
+            'butees_laterales': 'Butees_Laterales_D60',
+            'butees_pieds': 'Butees_Pieds_D61',
+            'solidarisation': 'Solidarisation_D62',
+            'demi_corbeille': 'Demi_Corbeille_D63',
+            'profile': 'Profile_D64',
+            'renforces': 'Renforces_D65',
+            'genou_moins': 'Genou_Moins_D66',
+            'tronc_plus': 'Tronc_Plus_D67',
+            'calles': 'Calles_D68',
+            'rampes': 'Rampes_D69',
+            'autre': 'Autre_D70',
+            'platine_reunion': 'Platine_Reunion_D71',
+            'pieds_centraux': 'Pieds_Centraux_D72',
+            'patins_feutre': 'Patins_Feutre_D73',
+            'patins_carrelage': 'Patins_Carrelage_D74',
+            'patins_teflon': 'Patins_Teflon_D75',
+            'finition_multiplis': 'Finition_Multiplis_D76',
+            'finition_90mm': 'Finition_90mm_D77',
+            'finition_paremente': 'Finition_Paremente_D78',
+            'finition_multiplis_tv': 'Finition_Multiplis_TV_D79',
+            'finition_multiplis_l': 'Finition_Multiplis_L_D80',
+            'finition_chene': 'Finition_Chene_D81',
+            'finition_frene_tv': 'Finition_Frene_TV_D82',
+            'finition_frene_l': 'Finition_Frene_L_D83'
+        }
+
+        has_paremente = False
+        if description_sommier:
+            desc_upper = description_sommier.upper()
+            desc_normalized = desc_upper.replace('É', 'E').replace('Ê', 'E')
+            if ("STRUCTURE PAREMENTEE" in desc_normalized or
+                "STRUCTURE PAREMENTÉE" in desc_upper or
+                "PAREMENTE" in desc_normalized or
+                "PAREMENTÉE" in desc_upper):
+                has_paremente = True
+                self.logger.info(f"PAREMENTEE détecté dans la description: {description_sommier[:100]}")
+
+        for opt, champ in options_mapping.items():
+            if has_paremente and opt in ['finition_multiplis', 'finition_multiplis_tv', 'finition_multiplis_l']:
+                pre_import_item[champ] = ''
+            elif opt == 'finition_paremente':
+                if has_paremente:
+                    pre_import_item[champ] = 'X'
+                else:
+                    pre_import_item[champ] = 'X' if options.get(opt) == 'OUI' else ''
+            else:
+                pre_import_item[champ] = 'X' if options.get(opt) == 'OUI' else ''
+
+
+def _logistics_to_operations(logistics: Dict[str, bool]) -> List[str]:
+    ops = []
+    if logistics.get("pickup"):
+        ops.append("ENLEVEMENT")
+    if logistics.get("delivery"):
+        ops.append("LIVRAISON")
+    if logistics.get("transporteur"):
+        ops.append("EXPEDITION")
+    return ops
+
+
+def _strip_price_prefix(text: str) -> str:
+    """Strip leading price/quantity prefix from article raw text.
+    E.g. '2 001,50 2 001,50 1,00 SOMMIER...' -> 'SOMMIER...'
+    Handles multiline: '0,00 0,00 0,00\\n1 977,69 1 977,69 1,00 SOMMIER...' -> 'SOMMIER...'
+    """
+    if not text:
+        return text
+    result = text
+    # Strip multiple price prefix lines
+    for _ in range(3):
+        match = re.match(r"^[\d\s]+[,\.]\d{2}\s+[\d\s]+[,\.]\d{2}\s+[\d\s]+[,\.]\d{2}\s*\n?", result)
+        if match:
+            remaining = result[match.end():]
+            if remaining.strip():
+                result = remaining
+            else:
+                break
+        else:
+            break
+    # Final strip of the last price prefix before the description text
+    match = re.match(r"^[\d\s]+[,\.]\d{2}\s+[\d\s]+[,\.]\d{2}\s+[\d\s]+[,\.]\d{2}\s+", result)
+    if match:
+        result = result[match.end():]
+    return result
+
+
+def _build_config_from_order(order_doc: Dict) -> Dict:
+    articles = [a.get("raw_text", "") for a in order_doc.get("articles", [])]
+    combined_text = "\n".join(articles)
+    normalized_combined = _normalize_article_text(combined_text).upper()
+
+    dim_tuple = None
+    for article in articles:
+        dim_tuple = _extract_dimension_tuple(article)
+        if dim_tuple:
+            break
+    dimensions_dict = _dimension_tuple_to_mm(dim_tuple) if dim_tuple else {}
+    dimension_text = _format_dimensions_mm(dimensions_dict) if dimensions_dict else ""
+
+    options_info = _extract_options_from_texts(articles)
+    options = options_info["options"]
+    accessoires = options_info["accessoires"]
+
+    config = {
+        "commande_client": order_doc.get("order_number", ""),
+        "semaine_annee": order_doc.get("semaine", ""),
+        "type_sommier": order_doc.get("order_type", "").upper(),
+        "materiau": _detect_materiau(normalized_combined),
+        "hauteur": str(dimensions_dict.get("hauteur", "")) if dimensions_dict else "",
+        "dimensions": dimensions_dict,
+        "dimension_sommier": dimension_text,
+        "type_relaxation_sommier": _detect_relaxation(normalized_combined),
+        "type_telecommande_sommier": _detect_telecommande(normalized_combined),
+        "soufflet_mousse": "OUI" if "SOUFFLET" in normalized_combined else "",
+        "facon_moderne": "OUI" if "MODERNE" in normalized_combined else "",
+        "tapissier_a_lattes": "OUI" if "TAPISSIER" in normalized_combined and "LATTES" in normalized_combined else "",
+        "lattes_francaises": "OUI" if "LATTES FRAN" in normalized_combined else "",
+        "quantite": 1,
+        "sommier_dansunlit": "OUI" if "DANS UN LIT" in normalized_combined or "LITERIE" in normalized_combined else "NON",
+        "sommier_pieds": "OUI" if "SUR PIED" in normalized_combined or "PIEDS" in normalized_combined else "NON",
+        "options_sommier": options,
+        "articles": [{"description": _strip_price_prefix(txt)} for txt in articles],
+        "accessoires_detectes": accessoires,
+        "logistique_detectee": order_doc.get("logistics", {}),
+        "mots_operation_trouves": _logistics_to_operations(order_doc.get("logistics", {})),
+        "description": combined_text,
+    }
+    return config
+
+
+def convert_pdf_orders_to_sommier_configs(order_documents: List[Dict]) -> List[Dict]:
+    aggregated: Dict[str, Dict] = {}
+    for order_doc in order_documents:
+        config = _build_config_from_order(order_doc)
+        key = config.get("commande_client") or order_doc.get("file_path")
+        if key in aggregated:
+            existing = aggregated[key]
+            existing['articles'].extend(config['articles'])
+            existing['accessoires_detectes'].extend(config['accessoires_detectes'])
+            existing['options_sommier'] = _merge_options(existing['options_sommier'], config['options_sommier'])
+            if not existing.get('dimension_sommier') and config.get('dimension_sommier'):
+                existing['dimension_sommier'] = config['dimension_sommier']
+                existing['dimensions'] = config['dimensions']
+            existing['logistique_detectee'].update(config['logistique_detectee'])
+            existing['mots_operation_trouves'] = list({*existing.get('mots_operation_trouves', []), *config.get('mots_operation_trouves', [])})
+        else:
+            aggregated[key] = config
+
+    configs = []
+    for idx, (_, cfg) in enumerate(sorted(aggregated.items()), start=1):
+        cfg['sommier_index'] = idx
+        configs.append(cfg)
+    return configs
+
 def creer_pre_import(configurations_matelas, donnees_client, contient_dosseret_tete=False, mots_operation_trouves=None, fermeture_liaison=False):
-    """
-    Crée un JSON de pré-import à partir des configurations matelas et des données client
-    
-    Args:
-        configurations_matelas: Liste des configurations matelas
-        donnees_client: Dictionnaire contenant les données client
-        contient_dosseret_tete: Booléen indiquant si DOSSERET ou TETE a été détecté
-        mots_operation_trouves: Liste des mots d'opération trouvés dans le document
-        fermeture_liaison: Booléen indiquant si "Fermeture de liaison" a été détecté
-        
-    Returns:
-        list: Liste de dictionnaires de pré-import, un par configuration matelas
-    """
-    pre_import_data = []
-    
-    # Vérifications de sécurité
-    if not configurations_matelas:
-        logger.warning("configurations_matelas est vide ou None")
-        return []
-    
-    if not donnees_client:
-        logger.warning("donnees_client est vide ou None")
-        return []
-    
-    if not isinstance(configurations_matelas, list):
-        logger.warning(f"configurations_matelas n'est pas une liste: {type(configurations_matelas)}")
-        return []
-    
-    if not isinstance(donnees_client, dict):
-        logger.warning(f"donnees_client n'est pas un dictionnaire: {type(donnees_client)}")
-        return []
-    
-    try:
-        for i, config in enumerate(configurations_matelas):
-            # Vérification de sécurité pour chaque configuration
-            if not config or not isinstance(config, dict):
-                logger.warning(f"Configuration {i} invalide: {config}")
-                continue
-                
-            # Récupération des valeurs de base
-            quantite = config.get("quantite", 1)
-            housse = config.get("housse", "")
-            matiere_housse = config.get("matiere_housse", "")
-            poignees = config.get("poignees", "")
-            noyau = config.get("noyau", "")
-            fermete = config.get("fermete", "")
-            surmatelas = config.get("surmatelas", False)
-            mots_operations = mots_operation_trouves or []
-            
-            # Récupération des dimensions (pour référence)
-            dimensions = config.get("dimensions", {})
-            if not isinstance(dimensions, dict):
-                dimensions = {}
-            largeur = dimensions.get("largeur", "")
-            longueur = dimensions.get("longueur", "")
-            
-            # Récupération des autres valeurs
-            dimension_housse = config.get("dimension_housse", "")
-            dimension_housse_longueur = config.get("dimension_housse_longueur", "")
-            decoupe_noyau = config.get("decoupe_noyau", "")
-            dimension_literie = config.get("dimension_literie", "")  # Utiliser la valeur calculée
-            
-            pre_import_item = {
-                # Champs client
-                "Client_D1": donnees_client.get("nom", ""),
-                "Adresse_D3": donnees_client.get("adresse", ""),
-                "MrMME_D4": create_mr_mme_with_cote(config),  # Extraction Mr/Mme + côté fusionnés
-                
-                # Champs commande et dates
-                "numero_D2": config.get("commande_client", ""),
-                "semaine_D5": config.get("semaine_annee", ""),
-                "lundi_D6": config.get("lundi", ""),
-                "vendredi_D7": config.get("vendredi", ""),
-                
-                # Champs matelas
-                "Hauteur_D22": config.get("hauteur", ""),
-                
-                # Champs détection
-                "dosseret_tete_C8": "X" if contient_dosseret_tete else "",
-                
-                # Champs quantité
-                "jumeaux_C10": "X" if quantite == 2 else "",
-                "jumeaux_D10": dimension_literie if quantite == 2 else "",
-                "1piece_C11": "X" if quantite == 1 else "",
-                "1piece_D11": dimension_literie if quantite == 1 else "",
-                
-                # Champs housse et matière
-                "HSimple_polyester_C13": "X" if housse == "SIMPLE" and matiere_housse == "POLYESTER" else "",
-                "HSimple_tencel_C14": "X" if housse == "SIMPLE" and matiere_housse == "TENCEL" else "",
-                "HSimple_autre_C15": "X" if housse == "SIMPLE" and matiere_housse == "AUTRE" else "",
-                "Hmat_polyester_C17": "X" if housse in ["MATELASSÉE", "MATELASSEE"] and matiere_housse == "POLYESTER" else "",
-                "Hmat_tencel_C18": "X" if housse in ["MATELASSÉE", "MATELASSEE"] and matiere_housse == "TENCEL" else "",
-                "Hmat_luxe3D_C19": "X" if housse in ["MATELASSÉE", "MATELASSEE"] and matiere_housse == "TENCEL LUXE 3D" else "",
-                
-                # Champs poignées
-                "poignees_C20": "X" if poignees == "OUI" else "",
-                
-                # Champs dimensions
-                "dimension_housse_D23": dimension_housse,
-                "longueur_D24": dimension_housse_longueur,
-                "decoupe_noyau_D25": decoupe_noyau,
-                
-                # Champs noyau et fermeté
-                "LN_Ferme_C28": "X" if noyau == "LATEX NATUREL" and fermete == "FERME" else "",
-                "LN_Medium_C29": "X" if noyau == "LATEX NATUREL" and fermete == "MEDIUM" else "",
-                "LM7z_Ferme_C30": "X" if noyau == "LATEX MIXTE 7 ZONES" and fermete == "FERME" else "",
-                "LM7z_Medium_C31": "X" if noyau == "LATEX MIXTE 7 ZONES" and fermete == "MEDIUM" else "",
-                "LM3z_Ferme_C32": "X" if noyau == "LATEX MIXTE 3 ZONES" and fermete == "FERME" else "",
-                "LM3z_Medium_C33": "X" if noyau == "LATEX MIXTE 3 ZONES" and fermete == "MEDIUM" else "",
-                "MV_Ferme_C34": "X" if noyau == "MOUSSE VISCO" and fermete == "FERME" else "",
-                "MV_Medium_C35": "X" if noyau == "MOUSSE VISCO" and fermete == "MEDIUM" else "",
-                "MV_Confort_C36": "X" if noyau == "MOUSSE VISCO" and fermete == "CONFORT" else "",
-                "MR_Ferme_C37": "X" if "MOUSSE RAINUREE" in noyau and fermete == "FERME" else "",
-                "MR_Medium_C38": "X" if "MOUSSE RAINUREE" in noyau and fermete == "MEDIUM" else "",
-                "MR_Confort_C39": "X" if "MOUSSE RAINUREE" in noyau and fermete == "CONFORT" else "",
-                "SL43_Ferme_C40": "X" if noyau == "SELECT 43" and fermete == "FERME" else "",
-                "SL43_Medium_C41": "X" if noyau == "SELECT 43" and fermete == "MEDIUM" else "",
-                "LR_Ferme_C32": "X" if noyau == "LATEX RENFORCE" and fermete == "FERME" else "",
-                "LR_Medium_C33": "X" if noyau == "LATEX RENFORCE" and fermete == "MEDIUM" else "",
-                "LR_Confort_C44": "X" if noyau == "LATEX RENFORCE" and fermete == "CONFORT" else "",
-                
-                # Champs surmatelas
-                "Surmatelas_C45": "X" if surmatelas else "",
-                
-                # Champs fermeture de liaison
-                "FDL_C51": "X" if fermeture_liaison else "",
-                
-                # Champs opérations
-                "emporte_client_C57": "X" if "ENLEVEMENT" in mots_operations else "",
-                "fourgon_C58": "X" if "LIVRAISON" in mots_operations else "",
-                "transporteur_C59": "X" if "EXPEDITION" in mots_operations else "",
-                
-                # Informations de référence
-                "matelas_index": config.get("matelas_index", i + 1),
-                "noyau": config.get("noyau", ""),
-                "quantite": config.get("quantite", 1)
-            }
-            
-            # Ajout des champs D conditionnels pour les housses
-            # Utiliser les dimensions brutes (largeur x longueur) au lieu de dimension_literie
-            dimension_brute = f"{largeur} x {longueur}" if largeur and longueur else ""
-            
-            # Fonction pour ajouter le préfixe quantité si nécessaire
-            def format_dimension_with_quantity(dim, qty):
-                if qty > 1 and dim:
-                    return f"{qty} x ({dim})"
-                return dim
-            
-            if pre_import_item["HSimple_polyester_C13"] == "X":
-                pre_import_item["HSimple_polyester_D13"] = format_dimension_with_quantity(dimension_brute, quantite)
-            if pre_import_item["HSimple_tencel_C14"] == "X":
-                pre_import_item["HSimple_tencel_D14"] = format_dimension_with_quantity(dimension_brute, quantite)
-            if pre_import_item["HSimple_autre_C15"] == "X":
-                pre_import_item["HSimple_autre_D15"] = format_dimension_with_quantity(dimension_brute, quantite)
-            if pre_import_item["Hmat_polyester_C17"] == "X":
-                pre_import_item["Hmat_polyester_D17"] = format_dimension_with_quantity(dimension_brute, quantite)
-            if pre_import_item["Hmat_tencel_C18"] == "X":
-                pre_import_item["Hmat_tencel_D18"] = format_dimension_with_quantity(dimension_brute, quantite)
-            if pre_import_item["Hmat_luxe3D_C19"] == "X":
-                pre_import_item["Hmat_luxe3D_D19"] = format_dimension_with_quantity(dimension_brute, quantite)
-            
-            pre_import_data.append(pre_import_item)
-            logger.info(f"Pré-import créé pour matelas {i + 1}: {pre_import_item}")
-        
-        logger.info(f"Pré-import créé avec succès: {len(pre_import_data)} éléments")
-        return pre_import_data
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de la création du pré-import: {e}")
-        return []
+    builder = PreImportBuilder()
+    return builder.build_matelas_pre_import(
+        configurations_matelas,
+        donnees_client,
+        contient_dosseret_tete=contient_dosseret_tete,
+        mots_operation_trouves=mots_operation_trouves,
+        fermeture_liaison=fermeture_liaison
+    )
+
+def creer_pre_import_sommier(configurations_sommier, donnees_client, mots_operation_trouves=None, articles_llm=None, contient_dosseret_tete=False):
+    builder = PreImportBuilder()
+    return builder.build_sommier_pre_import(
+        configurations_sommier,
+        donnees_client,
+        mots_operation_list=mots_operation_trouves,
+        articles_llm=articles_llm,
+        contient_dosseret_tete=contient_dosseret_tete
+    )
 
 def normalize_text(text: str) -> str:
     """Normalise le texte pour la recherche robuste (minuscules, suppression accents/espaces multiples)."""
@@ -438,105 +798,6 @@ def valider_pre_import(pre_import_data):
     except Exception as e:
         logger.error(f"Erreur lors de la validation du pré-import: {e}")
         return False
-
-def creer_pre_import_sommier(configurations_sommier, donnees_client, mots_operation_trouves=None):
-    """
-    Crée un JSON de pré-import pour les sommiers à partir des configurations sommier et des données client
-    
-    Args:
-        configurations_sommier: Liste des configurations sommier
-        donnees_client: Dictionnaire contenant les données client
-        mots_operation_trouves: Liste des mots d'opération trouvés dans le document
-        
-    Returns:
-        list: Liste de dictionnaires de pré-import, un par configuration sommier
-    """
-    from backend.sommier_utils import detecter_structure_renforcee_sommier
-    
-    pre_import_data = []
-    
-    # Vérifications de sécurité
-    if not configurations_sommier:
-        logger.warning("configurations_sommier est vide ou None")
-        return []
-    
-    if not donnees_client:
-        logger.warning("donnees_client est vide ou None")
-        return []
-    
-    if not isinstance(configurations_sommier, list):
-        logger.warning(f"configurations_sommier n'est pas une liste: {type(configurations_sommier)}")
-        return []
-    
-    if not isinstance(donnees_client, dict):
-        logger.warning(f"donnees_client n'est pas un dictionnaire: {type(donnees_client)}")
-        return []
-    
-    try:
-        for i, config in enumerate(configurations_sommier):
-            # Vérification de sécurité pour chaque configuration
-            if not config or not isinstance(config, dict):
-                logger.warning(f"Configuration sommier {i} invalide: {config}")
-                continue
-                
-            # Récupération des valeurs de base
-            description = config.get("description", "")
-            quantite = config.get("quantite", 1)
-            mots_operations = mots_operation_trouves or []
-            
-            # Détection de la structure renforcée
-            structure_renforcee = detecter_structure_renforcee_sommier(description)
-            
-            # Récupération des dimensions
-            dimensions = config.get("dimensions", {})
-            if not isinstance(dimensions, dict):
-                dimensions = {}
-            largeur = dimensions.get("largeur", "")
-            longueur = dimensions.get("longueur", "")
-            dimension_brute = f"{largeur} x {longueur}" if largeur and longueur else ""
-            
-            pre_import_item = {
-                # Champs client
-                "Client_D1": donnees_client.get("nom", ""),
-                "Adresse_D3": donnees_client.get("adresse", ""),
-                "MrMME_D4": create_mr_mme_with_cote(config),  # Extraction Mr/Mme + côté fusionnés
-                
-                # Champs commande et dates
-                "numero_D2": config.get("commande_client", ""),
-                "semaine_D5": config.get("semaine_annee", ""),
-                "lundi_D6": config.get("lundi", ""),
-                "vendredi_D7": config.get("vendredi", ""),
-                
-                # Champs sommier spécifiques
-                "type_sommier": config.get("type_sommier", ""),
-                "dimensions": dimension_brute,
-                
-                # Champ structure renforcée - créer le renforce_B550 avec "X" si OUI
-                "structure_renforces": structure_renforcee,
-                "renforce_B550": "X" if structure_renforcee == "OUI" else "",
-                
-                # Champs quantité
-                "quantite": quantite,
-                
-                # Champs opérations
-                "emporte_client_C57": "X" if "ENLEVEMENT" in mots_operations else "",
-                "fourgon_C58": "X" if "LIVRAISON" in mots_operations else "",
-                "transporteur_C59": "X" if "EXPEDITION" in mots_operations else "",
-                
-                # Informations de référence
-                "sommier_index": config.get("sommier_index", i + 1),
-                "description": description
-            }
-            
-            pre_import_data.append(pre_import_item)
-            logger.info(f"Pré-import sommier créé pour sommier {i + 1}: {pre_import_item}")
-        
-        logger.info(f"Pré-import sommier créé avec succès: {len(pre_import_data)} éléments")
-        return pre_import_data
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de la création du pré-import sommier: {e}")
-        return []
 
 def formater_pre_import_pour_affichage(pre_import_data):
     """

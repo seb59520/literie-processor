@@ -34,13 +34,36 @@ def extraire_titre_depuis_produits(articles_llm: list) -> str:
     
     return ""
 
-def extraire_donnees_client(llm_data: dict) -> dict:
+def extraire_ville_depuis_texte_brut(raw_text: str) -> str:
+    """
+    Extrait la ville du client depuis le texte brut du PDF.
+    Cherche le pattern: nom client → adresse → code_postal VILLE
+    en excluant l'adresse de la société (BORRE).
+    """
+    if not raw_text:
+        return None
+
+    # Trouver tous les patterns "code_postal VILLE" dans le texte
+    matches = re.findall(r'\b(\d{5})\s+([A-ZÀ-ÿ\s]+?)(?:\n|$)', raw_text)
+
+    for code_postal, ville in matches:
+        ville = ville.strip()
+        # Exclure l'adresse de la société (BORRE)
+        if ville and ville != "BORRE" and "BORRE" not in ville:
+            logger.info(f"Ville extraite depuis texte brut: '{ville}' (code postal: {code_postal})")
+            return ville
+
+    return None
+
+
+def extraire_donnees_client(llm_data: dict, raw_text: str = None) -> dict:
     """
     Extrait les données client depuis l'extraction LLM et les traite
-    
+
     Args:
         llm_data: Dictionnaire contenant les données extraites par le LLM
-        
+        raw_text: Texte brut du PDF pour fallback d'extraction de la ville
+
     Returns:
         dict: Dictionnaire contenant les données client traitées
     """
@@ -64,8 +87,14 @@ def extraire_donnees_client(llm_data: dict) -> dict:
                 # Extraction de l'adresse
                 if "adresse" in client_raw and client_raw["adresse"]:
                     adresse_complete = client_raw["adresse"].strip()
-                    # Traitement de l'adresse : on ne garde que ce qui suit le code postal
-                    client_data["adresse"] = extraire_ville_adresse(adresse_complete)
+                    # Vérifier que ce n'est pas l'adresse de la société (erreur LLM fréquente)
+                    if "525 RD 642" in adresse_complete or adresse_complete == "59190 BORRE":
+                        logger.warning(f"Adresse société détectée au lieu du client: '{adresse_complete}', tentative de correction...")
+                        # Tenter d'extraire depuis le texte brut si disponible
+                        client_data["adresse"] = None
+                    else:
+                        # Traitement de l'adresse : on ne garde que ce qui suit le code postal
+                        client_data["adresse"] = extraire_ville_adresse(adresse_complete)
                 
                 # Extraction du code client
                 if "code_client" in client_raw and client_raw["code_client"]:
@@ -77,9 +106,16 @@ def extraire_donnees_client(llm_data: dict) -> dict:
             for key in llm_data:
                 if isinstance(llm_data[key], list):
                     articles_llm.extend(llm_data[key])
-        
+
         client_data["titre"] = extraire_titre_depuis_produits(articles_llm)
-        
+
+        # Fallback: si l'adresse est None (rejetée comme adresse société), extraire depuis le texte brut
+        if not client_data["adresse"] and raw_text:
+            ville_fallback = extraire_ville_depuis_texte_brut(raw_text)
+            if ville_fallback:
+                client_data["adresse"] = ville_fallback
+                logger.info(f"Adresse client extraite depuis texte brut (fallback): '{ville_fallback}'")
+
         logger.info(f"Données client extraites: {client_data}")
         return client_data
         
