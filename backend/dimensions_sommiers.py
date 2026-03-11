@@ -29,83 +29,60 @@ def detecter_dimensions_sommier(description: str) -> Optional[Dict[str, float]]:
 
 def calculer_dimensions_sommiers(dimensions: Dict[str, float]) -> Optional[str]:
     """
-    Calcule les dimensions des sommiers selon les spécifications :
-    - largeur (arrondi à la dizaine supérieure) * 10
-    - longueur (arrondi à la dizaine supérieure) * 10  
-    - hauteur (multiplié par 10)
-    
+    Calcule les dimensions des sommiers : multiplication par 10 sans arrondi.
+    Les dimensions de la structure sont prises telles quelles.
+    Ex: 159/199/19 → "1590 x 1990 x 190"
+
     Args:
         dimensions: Dictionnaire contenant 'largeur', 'longueur', 'hauteur'
-        
+
     Returns:
-        String au format "largeur_calculee x longueur_calculee x hauteur_calculee"
-        ou None si les dimensions sont invalides
+        String au format "largeur x longueur x hauteur" ou None
     """
     if not dimensions:
         return None
-    
+
     largeur = dimensions.get('largeur')
     longueur = dimensions.get('longueur')
     hauteur = dimensions.get('hauteur')
-    
-    # Vérification que toutes les dimensions sont présentes
+
     if largeur is None or longueur is None or hauteur is None:
         return None
-    
-    # Calcul selon les spécifications
-    # Largeur : arrondi à la dizaine supérieure * 10
-    largeur_arrondie = math.ceil(largeur / 10.0) * 10
-    largeur_calculee = largeur_arrondie * 10
-    
-    # Longueur : arrondi à la dizaine supérieure * 10
-    longueur_arrondie = math.ceil(longueur / 10.0) * 10
-    longueur_calculee = longueur_arrondie * 10
-    
-    # Hauteur : multiplié par 10
-    hauteur_calculee = hauteur * 10
-    
-    return f"{int(largeur_calculee)} x {int(longueur_calculee)} x {int(hauteur_calculee)}"
+
+    # Multiplier par 10 sans arrondi
+    largeur_calculee = int(largeur * 10)
+    longueur_calculee = int(longueur * 10)
+    hauteur_calculee = int(hauteur * 10)
+
+    return f"{largeur_calculee} x {longueur_calculee} x {hauteur_calculee}"
 
 def calculer_dimensions_sommiers_detaillees(dimensions: Dict[str, float]) -> Optional[Dict[str, int]]:
     """
-    Calcule les dimensions des sommiers et retourne un dictionnaire détaillé
-    
-    Args:
-        dimensions: Dictionnaire contenant 'largeur', 'longueur', 'hauteur'
-        
-    Returns:
-        Dictionnaire avec les dimensions calculées ou None si invalide
+    Calcule les dimensions des sommiers et retourne un dictionnaire détaillé.
+    Multiplication par 10 sans arrondi.
     """
     if not dimensions:
         return None
-    
+
     largeur = dimensions.get('largeur')
     longueur = dimensions.get('longueur')
     hauteur = dimensions.get('hauteur')
-    
-    # Vérification que toutes les dimensions sont présentes
+
     if largeur is None or longueur is None or hauteur is None:
         return None
-    
-    # Calcul selon les spécifications
-    largeur_arrondie = math.ceil(largeur / 10.0) * 10
-    largeur_calculee = largeur_arrondie * 10
-    
-    longueur_arrondie = math.ceil(longueur / 10.0) * 10
-    longueur_calculee = longueur_arrondie * 10
-    
-    hauteur_calculee = hauteur * 10
-    
+
+    largeur_calculee = int(largeur * 10)
+    longueur_calculee = int(longueur * 10)
+    hauteur_calculee = int(hauteur * 10)
+
     return {
         "largeur_originale": largeur,
         "longueur_originale": longueur,
         "hauteur_originale": hauteur,
-        "largeur_arrondie": largeur_arrondie,
-        "longueur_arrondie": longueur_arrondie,
-        "largeur_calculee": int(largeur_calculee),
-        "longueur_calculee": int(longueur_calculee),
-        "hauteur_calculee": int(hauteur_calculee),
-        "dimensions_finales": f"{int(largeur_calculee)} x {int(longueur_calculee)} x {int(hauteur_calculee)}"
+        "largeur_calculee": largeur_calculee,
+        "longueur_calculee": longueur_calculee,
+        "hauteur_calculee": hauteur_calculee,
+        "dimensions_finales": f"{largeur_calculee} x {longueur_calculee} x {hauteur_calculee}"
     }
 
 if __name__ == "__main__":

@@ -4,10 +4,59 @@ Script d'automatisation Excel pour l'import de configurations de sommiers
 """
 
 import os
+import re
+import math
+import unicodedata
 import openpyxl
 import logging
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
+from openpyxl.utils import get_column_letter
+
+FIELD_ROW_OVERRIDES = {
+    # Zones lignes 6-13
+    "Sommier_DansUnLit_B6": {"row": 6, "column": "left"},
+    "Dimension_Sommier_C6": {"row": 6, "column": "right"},
+    "Sommier_Pieds_B7": {"row": 7, "column": "left"},
+    "Dimension_Sommier_C7": {"row": 7, "column": "right"},
+    "Tete_Bois_C9": {"row": 9, "column": "right"},
+    "Dosseret_Tissu_C10": {"row": 10, "column": "right"},
+    "Jumeaux_B11": {"row": 11, "column": "left"},
+    "Chevets_C13": {"row": 13, "column": "right"},
+    # Finitions structure
+    "Finition_Multiplis_D76": {"row": 25, "column": "left"},
+    "Finition_90mm_D77": {"row": 25, "column": "right"},
+    "Parementee_B26": {"row": 26, "column": "left"},
+    "Parementee_Info_C26": {"row": 26, "column": "right"},
+    "Finition_Paremente_D78": {"row": 26, "column": "left"},
+    "Finition_Multiplis_TV_D79": {"row": 27, "column": "left"},
+    "Finition_Multiplis_L_D80": {"row": 27, "column": "right"},
+    "Finition_Frene_TV_D82": {"row": 28, "column": "left"},
+    "Finition_Frene_L_D83": {"row": 28, "column": "right"},
+    "Finition_Chene_D81": {"row": 29, "column": "left"},
+    # Options pieds/patins lignes 33-43
+    "Platine_Reunion_D71": {"row": 39, "column": "left"},
+    "Pieds_Centraux_D72": {"row": 40, "column": "left"},
+    "Patins_Feutre_D73": {"row": 41, "column": "left"},
+    "Patins_Carrelage_D74": {"row": 42, "column": "left"},
+    "Patins_Teflon_D75": {"row": 43, "column": "left"},
+    # Options diverses lignes 45-55
+    "Butees_Laterales_D60": {"row": 45, "column": "left"},
+    "Butees_Pieds_D61": {"row": 46, "column": "left"},
+    "Solidarisation_D62": {"row": 47, "column": "left"},
+    "Demi_Corbeille_D63": {"row": 48, "column": "left"},
+    "Profile_D64": {"row": 49, "column": "left"},
+    "Renforces_D65": {"row": 50, "column": "left"},
+    "Genou_Moins_D66": {"row": 51, "column": "left"},
+    "Tronc_Plus_D67": {"row": 52, "column": "left"},
+    "Calles_D68": {"row": 53, "column": "left"},
+    "Rampes_D69": {"row": 54, "column": "left"},
+    "Autre_D70": {"row": 55, "column": "left"},
+    # Opérations logistiques lignes 56-58
+    "emporte_client_C57": {"row": 56, "column": "left"},
+    "fourgon_C58": {"row": 57, "column": "left"},
+    "transporteur_C59": {"row": 58, "column": "left"},
+}
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -17,8 +66,39 @@ class ExcelSommierImporter:
     """
     Classe pour automatiser l'import de configurations de sommiers dans Excel
     """
-    
-    def __init__(self, template_path: str = "template/template_sommier.xlsx", 
+
+    @staticmethod
+    def extraire_nom_famille(nom_complet: str) -> str:
+        """
+        Extrait le nom de famille depuis un nom complet.
+        Ex: "Mr et Me ADISSON EMMANUEL & VERONIQUE" → "ADISSON"
+        Ex: "Mr et Mme BOUDRY REGIS & CHRISTINE" → "BOUDRY"
+        Ex: "Me DEVYNCK ARLETTE" → "DEVYNCK"
+        """
+        if not nom_complet:
+            return ""
+
+        nom = nom_complet.strip()
+
+        # Supprimer les civilités en début
+        prefixes_to_remove = [
+            "Mr et Mme ", "Mr et Me ", "Mr et me ", "Mr & Mme ", "Mr & Me ",
+            "M. et Mme ", "M. et Me ", "Mme et Mr ", "Me et Mr ",
+            "Mme ", "Me ", "Mr ", "M. ", "Mlle ",
+        ]
+        for prefix in prefixes_to_remove:
+            if nom.startswith(prefix):
+                nom = nom[len(prefix):].strip()
+                break
+
+        # Le premier mot restant est le nom de famille
+        parts = nom.split()
+        if parts:
+            return parts[0].upper()
+
+        return nom.upper()
+
+    def __init__(self, template_path: str = "template/template_sommier.xlsx",
                  alignment_mode: str = "intelligent"):
         """
         Initialise l'importateur de sommiers
@@ -39,42 +119,21 @@ class ExcelSommierImporter:
             logger.warning(f"Impossible de charger le mapping manager: {e}. Utilisation des mappings par défaut.")
             self.mapping_manager = None
         
-        # Configuration pour les sommiers (même logique que les matelas)
-        self.column_blocks = [
-            ('C', 'D'),  # Cas 1
-            ('E', 'F'),  # Cas 2
-            ('G', 'H'),  # Cas 3
-            ('I', 'J'),  # Cas 4
-            ('K', 'L'),  # Cas 5
-            # M & N sont verrouillés - on saute
-            ('O', 'P'),  # Cas 6
-            ('Q', 'R'),  # Cas 7
-            ('S', 'T'),  # Cas 8
-            ('U', 'V'),  # Cas 9
-            ('W', 'X'),  # Cas 10
-        ]
+        # Configuration pour les sommiers détectée dynamiquement
+        self.column_blocks = self._discover_column_blocks()
+        self.field_row_overrides = FIELD_ROW_OVERRIDES.copy()
         
         # Mapping par défaut pour les sommiers (utilisé si mapping_manager non disponible)
+        # Note: Les mappings sont relatifs au template, la logique de map_json_to_cells
+        # applique les transformations (D→C, C→B, etc.)
         self.default_sommier_mappings = {
-            # Informations client (mêmes que les matelas)
-            "Client_D1": "E1",
-            "Adresse_D3": "E3",
-            "numero_D2": "E2",
+            # Informations client
+            "Client_D1": "C1",  # Écrit en C1, E1, G1... (colonne gauche)
+            "Adresse_D3": "C2",  # Écrit en C2, E2, G2... (colonne gauche)
+            "numero_D2": "C4",  # Écrit en C4, E4, G4... (colonne gauche, ligne 4)
             
             # Champs commande et dates
-            "semaine_D5": "E5",
-            "lundi_D6": "E6",
-            "vendredi_D7": "E7",
-            
-            # Champs sommiers
-            "Type_Sommier_D20": "E20",
-            "Materiau_D25": "E25",
-            "Hauteur_D30": "E30",
-            "Dimensions_D35": "E35",
-            "Quantite_D40": "E40",
-            # Nouvelles caractéristiques
-            "Sommier_DansUnLit_D45": "E45",
-            "Sommier_Pieds_D50": "E50",
+            "semaine_D5": "A4",  # Écrit en A4 avec "sem. " (géré séparément)
         }
         
         self.max_cases_per_file = 10  # Nombre maximum de sommiers par fichier (même que les matelas)
@@ -84,6 +143,47 @@ class ExcelSommierImporter:
         self.current_worksheet = None
         self.current_file_index = 1
         self.current_case_count = 0
+        self.total_written_cases = 0
+
+    def _discover_column_blocks(self) -> List[Tuple[str, str]]:
+        """Analyse le template pour déterminer automatiquement les paires de colonnes B/C, D/E, etc."""
+        try:
+            workbook = openpyxl.load_workbook(self.template_path, data_only=True)
+        except FileNotFoundError:
+            logger.warning("Template introuvable pour détection auto. Utilisation du layout par défaut.")
+            return [
+                ('B', 'C'),
+                ('D', 'E'),
+                ('F', 'G'),
+                ('H', 'I'),
+                ('J', 'K'),
+                ('M', 'N'),
+                ('O', 'P'),
+                ('Q', 'R'),
+                ('S', 'T'),
+                ('U', 'V'),
+            ]
+
+        worksheet = workbook.active
+        blocks: List[Tuple[str, str]] = []
+        try:
+            for col_idx in range(1, worksheet.max_column):
+                cell_value = worksheet.cell(row=2, column=col_idx).value
+                if isinstance(cell_value, (int, float)) and str(int(cell_value)).isdigit():
+                    left = get_column_letter(col_idx)
+                    right = get_column_letter(col_idx + 1)
+                    blocks.append((left, right))
+            if not blocks:
+                raise ValueError("Aucun bloc détecté dans le template sommier (ligne 2)")
+            return blocks
+        finally:
+            workbook.close()
+
+    def _clear_block(self, worksheet: openpyxl.worksheet.worksheet.Worksheet, left_col: str, right_col: str) -> None:
+        """Réinitialise toutes les cellules d'un bloc avant écriture."""
+        for row in range(3, 90):  # préserver les en-têtes (lignes 1-2)
+            worksheet[f"{left_col}{row}"] = None
+            worksheet[f"{right_col}{row}"] = None
     
     def generate_filename(self, semaine: str, id_client: str) -> str:
         """
@@ -125,22 +225,35 @@ class ExcelSommierImporter:
             True si le bloc est vide
         """
         # Vérifier les cellules clés pour les sommiers
+        # Les données sont écrites dans right_col (C, E, G...) pour la plupart des champs
         # On ignore les numéros de cas du template (1, 2, 3, etc.)
         key_cells = [
-            f"{left_col}1",  # Client
-            f"{left_col}3",  # Adresse
-            f"{left_col}5",  # Semaine
-            f"{left_col}20", # Type sommier
+            f"{right_col}1",  # Client (C1, E1, G1...)
+            f"{right_col}2",  # Adresse (C2, E2, G2...)
+            f"{right_col}4",  # Numéro commande (C4, E4, G4...)
+            f"{right_col}20", # Type sommier (si présent)
         ]
         
         for cell_address in key_cells:
-            cell_value = worksheet[cell_address].value
-            if cell_value and str(cell_value).strip():
-                # Vérifier que ce n'est pas juste un numéro de cas du template
-                cell_str = str(cell_value).strip()
-                if not cell_str.isdigit() or int(cell_str) > 20:  # Ignorer les numéros 1-20 du template
+            try:
+                cell_value = worksheet[cell_address].value
+                if cell_value and str(cell_value).strip():
+                    # Vérifier que ce n'est pas juste un numéro de cas du template
+                    cell_str = str(cell_value).strip()
+                    # Ignorer les numéros de cas du template (1-20) et les cellules fusionnées
+                    if cell_str.isdigit():
+                        case_num = int(cell_str)
+                        if case_num <= 20:  # Numéro de cas du template, on ignore
+                            continue
+                    # Si c'est autre chose qu'un numéro de cas, le bloc n'est pas vide
+                    logger.info(f"Bloc {left_col}-{right_col} non vide: {cell_address} = '{cell_value}'")
                     return False
+            except Exception as e:
+                # Si erreur (cellule fusionnée, etc.), on considère comme vide
+                logger.debug(f"Erreur vérification {cell_address}: {e}, considéré comme vide")
+                continue
         
+        logger.info(f"Bloc {left_col}-{right_col} est vide")
         return True
     
     def find_next_empty_block(self, worksheet: openpyxl.worksheet.worksheet.Worksheet) -> Optional[Tuple[str, str]]:
@@ -195,14 +308,59 @@ class ExcelSommierImporter:
                 col_letter = match.group(1)
                 row_num = int(match.group(2))
                 
-                # Déterminer si c'est une colonne C ou D dans le template
-                if col_letter in ['C', 'E', 'G', 'I', 'K', 'O', 'Q', 'S', 'U', 'W']:
-                    actual_col = left_col
-                else:
+                row_override = self.field_row_overrides.get(field_name)
+                actual_col = None
+
+                # Règles spéciales pour certains champs
+                if row_override:
+                    row_num = row_override["row"]
+                    column_selector = row_override.get("column", "right")
+                    if column_selector == "left":
+                        actual_col = left_col
+                    elif column_selector == "right":
+                        actual_col = right_col
+                    elif column_selector == "fixed":
+                        actual_col = row_override.get("column_letter", right_col)
+                    else:
+                        actual_col = right_col
+                elif field_name == "numero_D2":
+                    # numero_D2 : toujours ligne 4, colonne droite du bloc (C4, E4, G4...)
                     actual_col = right_col
+                    row_num = 4
+                elif field_name == "Client_D1":
+                    # Client_D1 : ligne 1, colonne droite du bloc (C1, E1, G1...)
+                    actual_col = right_col
+                    row_num = 1
+                elif field_name == "Adresse_D3":
+                    # Adresse_D3 : ligne 2, colonne droite du bloc (C2, E2, G2...)
+                    actual_col = right_col
+                    row_num = 2
+                elif field_name == "semaine_D5":
+                    # semaine_D5 : A4 avec "sem. " devant (géré ailleurs, on ignore ici)
+                    continue
+                else:
+                    # Pour les autres champs, transformation selon les nouvelles paires BC, DE, FG...
+                    if col_letter in ['C', 'E', 'G', 'I', 'K', 'O', 'Q', 'S', 'U', 'W']:
+                        actual_col = left_col
+                    else:
+                        actual_col = right_col
                 
                 actual_cell_address = f"{actual_col}{row_num}"
                 value = config_json.get(field_name, "")
+                
+                # Vérifier si PAREMENTEE est détecté pour forcer MULTIPLIS à vide
+                if field_name in ['Finition_Multiplis_D76', 'Finition_Multiplis_TV_D79', 'Finition_Multiplis_L_D80']:
+                    description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
+                    if description_sommier:
+                        desc_upper = description_sommier.upper()
+                        desc_normalized = description_sommier.upper().replace('É', 'E').replace('Ê', 'E')
+                        if ("STRUCTURE PAREMENTEE" in desc_normalized or 
+                            "STRUCTURE PAREMENTÉE" in desc_upper or 
+                            "PAREMENTE" in desc_normalized or
+                            "PAREMENTÉE" in desc_upper):
+                            # PAREMENTEE détecté, forcer MULTIPLIS à vide
+                            value = ''
+                            logger.info(f"MULTIPLIS forcé à vide dans map_json_to_cells: {field_name} -> {actual_cell_address}")
                 
                 # Ne pas écrire les champs vides (ignorés)
                 if value:
@@ -273,33 +431,14 @@ class ExcelSommierImporter:
             
             logger.info(f"Mise à jour des numéros de cas sommier pour le fichier {file_index}: cas {start_case_number} à {start_case_number + 9}")
             
-            # Mapping des colonnes pour les numéros de cas (ligne 2)
-            # Format: (colonne_gauche, colonne_droite, numéro_cas)
-            case_number_mapping = [
-                ('C', 'D', start_case_number),      # Cas 1
-                ('E', 'F', start_case_number + 1),  # Cas 2
-                ('G', 'H', start_case_number + 2),  # Cas 3
-                ('I', 'J', start_case_number + 3),  # Cas 4
-                ('K', 'L', start_case_number + 4),  # Cas 5
-                # M & N sont verrouillés - on saute
-                ('O', 'P', start_case_number + 5),  # Cas 6
-                ('Q', 'R', start_case_number + 6),  # Cas 7
-                ('S', 'T', start_case_number + 7),  # Cas 8
-                ('U', 'V', start_case_number + 8),  # Cas 9
-                ('W', 'X', start_case_number + 9),  # Cas 10
-            ]
-            
-            # Mettre à jour chaque numéro de cas
-            for left_col, right_col, case_number in case_number_mapping:
-                # Mettre à jour la colonne gauche (C, E, G, etc.)
+            case_blocks = self.column_blocks[:self.max_cases_per_file]
+            for offset, (left_col, right_col) in enumerate(case_blocks):
+                case_number = start_case_number + offset
                 left_cell = f"{left_col}2"
-                worksheet[left_cell] = case_number
-                
-                # Mettre à jour la colonne droite (D, F, H, etc.)
                 right_cell = f"{right_col}2"
+                worksheet[left_cell] = case_number
                 worksheet[right_cell] = case_number
-                
-                logger.debug(f"Cas sommier {case_number}: {left_cell} et {right_cell} mis à jour")
+                logger.debug("Cas sommier %s: %s et %s mis à jour", case_number, left_cell, right_cell)
             
             logger.info(f"Numéros de cas sommier mis à jour avec succès pour le fichier {file_index}")
             
@@ -307,6 +446,787 @@ class ExcelSommierImporter:
             logger.error(f"Erreur lors de la mise à jour des numéros de cas sommier: {e}")
             raise
 
+    def detecter_type_pieds(self, description: str) -> Optional[str]:
+        """
+        Détecte le type de pieds depuis une description d'article.
+        
+        Args:
+            description: Description de l'article (ex: "JEU DE 8 PIEDS CUBIQUE BRUT 20 CM + PLATINE DE RÉUNION + PATINS TÉFLON")
+            
+        Returns:
+            Type de pied détecté: "ANGLE_CUBIQUE", "ANGLE_DROIT", "ANGLE_GALBE", "CUBIQUE", "CYLINDRE", ou None
+        """
+        if not description:
+            return None
+        
+        # Normaliser la description en majuscules
+        desc_upper = description.upper()
+        
+        # Ordre important : chercher d'abord les types composés pour éviter les confusions
+        # ANGLE CUBIQUE (ne pas confondre avec CUBIQUE seul)
+        if "ANGLE CUBIQUE" in desc_upper:
+            return "ANGLE_CUBIQUE"
+        
+        # ANGLE DROIT
+        if "ANGLE DROIT" in desc_upper:
+            return "ANGLE_DROIT"
+        
+        # ANGLE GALBE
+        if "ANGLE GALBE" in desc_upper:
+            return "ANGLE_GALBE"
+        
+        # CUBIQUE seul (seulement si pas précédé de "ANGLE")
+        # On a déjà vérifié "ANGLE CUBIQUE" plus haut, donc si on arrive ici,
+        # on cherche "CUBIQUE" seul (sans "ANGLE" juste avant)
+        if "CUBIQUE" in desc_upper:
+            # Vérifier qu'il n'y a pas "ANGLE" dans un contexte proche avant "CUBIQUE"
+            cubique_index = desc_upper.find("CUBIQUE")
+            # Chercher "ANGLE" dans les 15 caractères avant "CUBIQUE" pour être plus robuste
+            before_cubique = desc_upper[max(0, cubique_index - 15):cubique_index]
+            # Vérifier aussi qu'on n'a pas déjà détecté "ANGLE CUBIQUE" (sécurité supplémentaire)
+            if "ANGLE" not in before_cubique and "ANGLE CUBIQUE" not in desc_upper:
+                return "CUBIQUE"
+        
+        # CYLINDRE
+        if "CYLINDRE" in desc_upper:
+            return "CYLINDRE"
+        
+        return None
+    
+    def extraire_nombre_pieds(self, description: str) -> Optional[int]:
+        """
+        Extrait le nombre de pieds depuis une description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            Nombre de pieds trouvé ou None
+        """
+        desc_upper = description.upper()
+        
+        # Chercher "X PIEDS" ou "X PIED" (au singulier ou pluriel)
+        match = re.search(r'(\d+)\s*PIEDS?', desc_upper)
+        if match:
+            return int(match.group(1))
+        
+        return None
+    
+    def extraire_texte_apres_type(self, description: str, type_pieds: str) -> str:
+        """
+        Extrait le texte entre le type de pieds et le premier "+".
+        
+        Args:
+            description: Description complète
+            type_pieds: Type de pieds détecté ("ANGLE_CUBIQUE", "CUBIQUE", etc.)
+            
+        Returns:
+            Texte extrait (sans l'espace après le type) ou chaîne vide
+        """
+        desc_upper = description.upper()
+        
+        # Convertir le type en texte à chercher
+        type_text = type_pieds.replace("_", " ")  # "ANGLE_CUBIQUE" -> "ANGLE CUBIQUE"
+        
+        # Trouver la position du type dans la description
+        type_index = desc_upper.find(type_text)
+        if type_index == -1:
+            return ""
+        
+        # Position après le type (en tenant compte de la longueur du type)
+        after_type_index = type_index + len(type_text)
+        
+        # Chercher le premier "+" après le type
+        plus_index = desc_upper.find("+", after_type_index)
+        
+        if plus_index == -1:
+            # Pas de "+" trouvé, ne rien retourner
+            return ""
+        
+        # Extraire le texte entre le type et le "+"
+        texte_extraite = description[after_type_index:plus_index].strip()
+        
+        return texte_extraite
+    
+    def detecter_platine_reunion(self, description: str) -> bool:
+        """
+        Détecte la présence de "PLATINE DE REUNION" ou "PLATINE DE RÉUNION" dans la description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            True si "PLATINE DE REUNION" est détecté, False sinon
+        """
+        # Normaliser la description (enlever accents, mettre en majuscules)
+        desc_normalized = unicodedata.normalize('NFKD', description.upper()).encode('ASCII', 'ignore').decode('ASCII')
+        
+        # Chercher "PLATINE DE REUNION" (sans accent après normalisation)
+        if "PLATINE DE REUNION" in desc_normalized:
+            return True
+        
+        # Chercher aussi avec accent dans la description originale (au cas où)
+        desc_upper = description.upper()
+        if "PLATINE DE RÉUNION" in desc_upper or "PLATINE DE REUNION" in desc_upper:
+            return True
+        
+        return False
+    
+    def detecter_type_patin(self, description: str) -> Optional[str]:
+        """
+        Détecte le type de patin dans la description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            Type de patin détecté: "TEFLON", "CARRELAGE", "FEUTRE", ou None
+        """
+        desc_upper = description.upper()
+        
+        # Vérifier d'abord qu'il y a bien "PATIN" ou "PATINS" dans la description
+        if "PATIN" not in desc_upper:
+            return None
+        
+        # Ordre de recherche : chercher les types spécifiques avec "PATIN" ou "PATINS"
+        # Chercher "PATIN TEFLON" ou "PATINS TEFLON" en priorité
+        if "PATIN TEFLON" in desc_upper or "PATINS TEFLON" in desc_upper:
+            return "TEFLON"
+        
+        # Chercher "PATIN CARRELAGE" ou "PATINS CARRELAGE"
+        if "PATIN CARRELAGE" in desc_upper or "PATINS CARRELAGE" in desc_upper:
+            return "CARRELAGE"
+        
+        # Chercher "PATIN FEUTRE" ou "PATINS FEUTRE"
+        if "PATIN FEUTRE" in desc_upper or "PATINS FEUTRE" in desc_upper:
+            return "FEUTRE"
+        
+        # Fallback : chercher les mots seuls mais proches de "PATIN"
+        # Chercher "TEFLON" près de "PATIN" (dans les 20 caractères)
+        teflon_index = desc_upper.find("TEFLON")
+        if teflon_index != -1:
+            patin_index = desc_upper.find("PATIN")
+            if patin_index != -1 and abs(teflon_index - patin_index) <= 20:
+                return "TEFLON"
+        
+        carrelage_index = desc_upper.find("CARRELAGE")
+        if carrelage_index != -1:
+            patin_index = desc_upper.find("PATIN")
+            if patin_index != -1 and abs(carrelage_index - patin_index) <= 20:
+                return "CARRELAGE"
+        
+        feutre_index = desc_upper.find("FEUTRE")
+        if feutre_index != -1:
+            patin_index = desc_upper.find("PATIN")
+            if patin_index != -1 and abs(feutre_index - patin_index) <= 20:
+                return "FEUTRE"
+        
+        return None
+    
+    def detecter_sommier_jumeaux(self, description: str) -> bool:
+        """
+        Détecte si "JUMEAUX" est présent dans une description de sommier.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            True si "JUMEAUX" est détecté, False sinon
+        """
+        desc_upper = description.upper()
+        return "JUMEAUX" in desc_upper
+    
+    def extraire_dimensions_sommier(self, description: str) -> Optional[tuple]:
+        """
+        Extrait les dimensions au format "159/ 199/ 17" depuis une description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            Tuple (valeur1, valeur2, valeur3) ou None si non trouvé
+        """
+        # Chercher un pattern comme "159/ 199/ 17" ou "159/199/17" ou "159 / 199 / 17"
+        # Pattern: nombre(s) / nombre(s) / nombre(s)
+        pattern = r'(\d+)\s*/\s*(\d+)\s*/\s*(\d+)'
+        match = re.search(pattern, description)
+        
+        if match:
+            try:
+                val1 = int(match.group(1))
+                val2 = int(match.group(2))
+                val3 = int(match.group(3))
+                return (val1, val2, val3)
+            except ValueError:
+                return None
+        
+        return None
+    
+    def formater_dimensions_sommier(self, dimensions: tuple) -> str:
+        """
+        Formate les dimensions en multipliant simplement par 10 (sans arrondi).
+        Les dimensions de la structure sont prises telles quelles.
+        Ex: (159, 199, 19) → "1590 X 1990 X 190"
+        Ex: (179, 199, 19) → "1790 X 1990 X 190"
+
+        Args:
+            dimensions: Tuple (valeur1, valeur2, valeur3)
+
+        Returns:
+            Chaîne formatée : "1590 X 1990 X 190"
+        """
+        val1, val2, val3 = dimensions
+
+        # Multiplier par 10 sans arrondi
+        val1_mm = int(val1 * 10)
+        val2_mm = int(val2 * 10)
+        val3_mm = int(val3 * 10)
+
+        # Format : "1590 X 1990 X 190"
+        return f"{val1_mm} X {val2_mm} X {val3_mm}"
+    
+    def extraire_texte_apres_dernier_tiret(self, description: str) -> str:
+        """
+        Extrait le texte après le dernier "-" dans la description.
+        
+        Args:
+            description: Description complète
+            
+        Returns:
+            Texte après le dernier "-" ou chaîne vide
+        """
+        # Trouver le dernier "-"
+        dernier_tiret_index = description.rfind("-")
+        if dernier_tiret_index == -1:
+            return ""
+        
+        # Extraire le texte après le dernier "-"
+        texte_apres = description[dernier_tiret_index + 1:].strip()
+        return texte_apres
+    
+    def enlever_dimensions_texte(self, texte: str) -> str:
+        """
+        Enlève les dimensions du texte (format comme "160/ 84 CM" ou "160/84CM").
+        
+        Args:
+            texte: Texte à nettoyer
+            
+        Returns:
+            Texte sans les dimensions
+        """
+        # Pattern pour détecter les dimensions : nombre/nombre CM ou nombre/nombreCM
+        pattern = r'\d+\s*/\s*\d+\s*CM?'
+        texte_sans_dim = re.sub(pattern, '', texte, flags=re.IGNORECASE)
+        return texte_sans_dim.strip()
+    
+    def detecter_finition_structure(self, description: str) -> List[tuple]:
+        """
+        Détecte toutes les finitions de la structure dans toute la description.
+        Le texte écrit dans Excel est extrait après le dernier "-" (sans dimensions).
+        
+        Args:
+            description: Description complète
+            
+        Returns:
+            Liste de tuples (type_finition, texte)
+            Types possibles: "PAREMENTEE", "CHENE", "HETRE", "FRENE"
+        """
+        finitions = []
+        
+        if not description:
+            return finitions
+        
+        # Chercher dans toute la description (pas seulement après le dernier "-")
+        desc_upper = description.upper()
+        desc_normalized = unicodedata.normalize('NFKD', desc_upper).encode('ASCII', 'ignore').decode('ASCII')
+        
+        # Extraire le texte après le dernier "-" pour l'écriture dans Excel
+        texte_apres_tiret = self.extraire_texte_apres_dernier_tiret(description)
+        texte_clean = self.enlever_dimensions_texte(texte_apres_tiret) if texte_apres_tiret else ""
+        
+        # Retirer le contexte des lattes pour éviter les faux positifs
+        # Ex: "DOUBLES LATTES ( HÊTRE MULTIPLIS )" ne doit pas compter comme finition HÊTRE
+        desc_sans_lattes = re.sub(r'LATTES\s*\([^)]*\)', 'LATTES', desc_normalized)
+
+        # Détecter PAREMENTÉ (avec ou sans "STRUCTURE" devant)
+        if "PAREMENTEE" in desc_sans_lattes or "PAREMENTE" in desc_sans_lattes:
+            finitions.append(("PAREMENTEE", texte_clean))
+
+        # Détecter STRUCTURE HÊTRE MULTIPLIS → type MULTIPLIS (row 25), pas HÊTRE (row 27)
+        if "HETRE MULTIPLIS" in desc_sans_lattes or "STRUCTURE HETRE" in desc_sans_lattes and "MULTIPLIS" in desc_sans_lattes:
+            finitions.append(("MULTIPLIS", texte_clean))
+        # Détecter HÊTRE seul (ex: "HÊTRE LAQUÉ") → row 27
+        elif "HETRE" in desc_sans_lattes:
+            finitions.append(("HETRE", texte_clean))
+
+        # Détecter FRÊNE
+        if "FRENE" in desc_sans_lattes:
+            finitions.append(("FRENE", texte_clean))
+
+        # Détecter CHÊNE
+        if "CHENE" in desc_sans_lattes:
+            finitions.append(("CHENE", texte_clean))
+        
+        return finitions
+    
+    def detecter_telecommande_type(self, description: str) -> Optional[str]:
+        """
+        Détecte le type de télécommande dans la description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            "RADIO" si RADIO/SANS FIL/SS FIL détecté, "STANDARD" sinon, ou None si pas de télécommande
+        """
+        desc_upper = description.upper()
+        
+        # Vérifier d'abord qu'il y a "TÉLÉCOMMANDE" ou "TELECOMMANDE"
+        if "TÉLÉCOMMANDE" not in desc_upper and "TELECOMMANDE" not in desc_upper:
+            return None
+        
+        # Chercher RADIO, SANS FIL, SS FIL
+        if "RADIO" in desc_upper or "SANS FIL" in desc_upper or "SS FIL" in desc_upper:
+            return "RADIO"
+        
+        return "STANDARD"
+    
+    def ecrire_tete_dosseret_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                                  description: str, left_col: str, right_col: str) -> None:
+        """
+        Détecte et écrit les informations de TETE DROITE AJOUREE, TETE/TÊTE, DOSSERET et CHEVET dans Excel.
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article
+            left_col: Colonne gauche du bloc (B, D, F, H, J, N, P, R, T, V)
+            right_col: Colonne droite du bloc (C, E, G, I, K, O, Q, S, U, W)
+        """
+        desc_upper = description.upper()
+        
+        # Détecter TETE DROITE AJOUREE (priorité)
+        if desc_upper.startswith("TETE DROITE AJOUREE"):
+            # Écrire "X" en B9, D9, F9...
+            cell_address_left = f"{left_col}9"
+            worksheet[cell_address_left] = "X"
+            logger.info(f"Écriture TETE DROITE AJOUREE: {cell_address_left} = X")
+            
+            # Copier la description complète en C9, E9, G9... (même ligne)
+            cell_address_right = f"{right_col}9"
+            worksheet[cell_address_right] = description
+            logger.info(f"Écriture description TETE: {cell_address_right} = {description[:50]}...")
+        
+        # Détecter TETE/TÊTE (commence par, sans "DROITE AJOUREE")
+        elif desc_upper.startswith("TETE") or desc_upper.startswith("TÊTE"):
+            # Écrire "X" en B9, D9, F9...
+            cell_address_left = f"{left_col}9"
+            worksheet[cell_address_left] = "X"
+            logger.info(f"Écriture TETE: {cell_address_left} = X")
+            
+            # Copier la description complète en C9, E9, G9... (même ligne)
+            cell_address_right = f"{right_col}9"
+            worksheet[cell_address_right] = description
+            logger.info(f"Écriture description TETE: {cell_address_right} = {description[:50]}...")
+        
+        # Détecter DOSSERET (insensible à la casse)
+        elif desc_upper.startswith("DOSSERET"):
+            # Écrire "X" en B10, D10, F10...
+            cell_address_left = f"{left_col}10"
+            worksheet[cell_address_left] = "X"
+            logger.info(f"Écriture DOSSERET: {cell_address_left} = X")
+            
+            # Copier la description complète en C10, E10, G10... (même ligne)
+            cell_address_right = f"{right_col}10"
+            worksheet[cell_address_right] = description
+            logger.info(f"Écriture description DOSSERET: {cell_address_right} = {description[:50]}...")
+        
+        # Détecter CHEVET, TIROIR ou NICHE
+        if "CHEVET" in desc_upper or "TIROIR" in desc_upper or "NICHE" in desc_upper:
+            # Écrire "X" en B13, D13, F13...
+            cell_address_left = f"{left_col}13"
+            worksheet[cell_address_left] = "X"
+            logger.info(f"Écriture CHEVET/TIROIR: {cell_address_left} = X")
+
+            # Copier la description complète en C13, E13, G13... (même ligne)
+            cell_address_right = f"{right_col}13"
+            worksheet[cell_address_right] = description
+            logger.info(f"Écriture description CHEVET/TIROIR: {cell_address_right} = {description[:50]}...")
+    
+    def detecter_type_sommier_fixe_manuel_motorise(self, description: str) -> Optional[str]:
+        """
+        Détecte le type de sommier détaillé depuis une description.
+
+        Returns:
+            "FIXE", "TPR", "TT_TENON", "TT_TPR", ou None
+        """
+        if not description:
+            return None
+
+        desc_upper = description.upper()
+        desc_norm = unicodedata.normalize('NFKD', desc_upper).encode('ASCII', 'ignore').decode('ASCII')
+
+        # 1. FIXE (pas de relaxation) - normaliser les tirets pour gérer "JUMEAUX - FIXE"
+        desc_fixe = desc_norm.replace(" - ", " ").replace("- ", " ").replace(" -", " ")
+        if ("SOMMIER FIXE" in desc_fixe or "SOMMIERS JUMEAUX FIXE" in desc_fixe
+                or "SOMMIERS FIXE" in desc_fixe or "JUMEAUX FIXE" in desc_fixe):
+            return "FIXE"
+
+        # 2. Relaxation motorisée télescopique → TT embout sur TENON
+        if "TELESCOPIQUE" in desc_norm and ("MOTORISEE" in desc_norm or "MOTORISE" in desc_norm):
+            return "TT_TENON"
+
+        # 3. Relaxation manuelle → TPR
+        if "RELAXATION MANUELLE" in desc_norm or "MANUEL" in desc_norm:
+            return "TPR"
+
+        # 4. Relaxation motorisée (non télescopique) → TT embout TPR
+        if "MOTORISEE" in desc_norm or "MOTORISE" in desc_norm or "RELAXATION" in desc_norm:
+            return "TT_TPR"
+
+        return None
+    
+    def ecrire_type_sommier_fixe_manuel_motorise_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                                                       description: str, left_col: str,
+                                                       right_col: str = None) -> None:
+        """
+        Écrit un "X" dans la cellule Excel appropriée selon le type de sommier détecté.
+        Mapping template :
+          row 18 = FIXE, row 19 = TPR, row 20 = TT embout TPR, row 21 = TT embout sur TENON
+
+        Pour les FIXE, écrit aussi "LATTES DESSUS" ou "LATTES DESSOUS" dans right_col row 18.
+        """
+        type_sommier = self.detecter_type_sommier_fixe_manuel_motorise(description)
+
+        if not type_sommier:
+            return
+
+        # Mapping des types vers les lignes Excel du template
+        ligne_mapping = {
+            "FIXE": 18,       # row 18 = FIXE
+            "TPR": 19,        # row 19 = TPR
+            "TT_TPR": 20,     # row 20 = TT embout TPR
+            "TT_TENON": 21,   # row 21 = TT embout sur TENON
+        }
+
+        ligne = ligne_mapping.get(type_sommier)
+        if ligne:
+            cell_address = f"{left_col}{ligne}"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture type sommier: {cell_address} = X ({type_sommier})")
+
+            # Pour FIXE : ajouter la précision LATTES DESSUS / LATTES DESSOUS
+            if type_sommier == "FIXE" and right_col:
+                desc_upper = description.upper()
+                if "LATTES DESSUS" in desc_upper:
+                    worksheet[f"{right_col}{ligne}"] = "LATTES DESSUS"
+                    logger.info(f"Écriture FIXE détail: {right_col}{ligne} = LATTES DESSUS")
+                elif "LATTES DESSOUS" in desc_upper:
+                    worksheet[f"{right_col}{ligne}"] = "LATTES DESSOUS"
+                    logger.info(f"Écriture FIXE détail: {right_col}{ligne} = LATTES DESSOUS")
+
+        # Pour les types TT (motorisés), marquer aussi row 23 (RF Noire + Torche)
+        # si la télécommande RF est déjà gérée par ecrire_telecommande_excel
+        # Pour TPR, marquer aussi TT_TENON si c'est un 3 plis (relaxation manuelle = TPR + TT)
+        if type_sommier == "TPR":
+            # Les sommiers relaxation manuelle ont aussi l'embout sur TENON
+            cell_tt = f"{left_col}21"
+            worksheet[cell_tt] = "X"
+            logger.info(f"Écriture TPR + TT TENON: {cell_tt} = X")
+    
+    def ecrire_sommier_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                            description: str, left_col: str, right_col: str) -> None:
+        """
+        Détecte et écrit les informations de sommier dans Excel.
+        - Détecte JUMEAUX : écrit "X" en B11 ou B12
+        - Extrait et formate les dimensions : écrit la chaîne formatée
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article commençant par "SOMMIER"
+            left_col: Colonne gauche du bloc (B, D, F, H, J, N, P, R, T, V)
+            right_col: Colonne droite du bloc (C, E, G, I, K, O, Q, S, U, W)
+        """
+        desc_upper = description.upper()
+        
+        # Vérifier que la description commence par "SOMMIER" ou "SOMMIERS"
+        if not (desc_upper.startswith("SOMMIER") or desc_upper.startswith("SOMMIERS")):
+            return
+        
+        # Détecter JUMEAUX
+        is_jumeaux = self.detecter_sommier_jumeaux(description)
+        
+        if is_jumeaux:
+            # Écrire "X" en B11, D11, F11...
+            cell_address = f"{left_col}11"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture sommier jumeaux: {cell_address} = X")
+        else:
+            # Écrire "X" en B12, D12, F12...
+            cell_address = f"{left_col}12"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture sommier standard: {cell_address} = X")
+        
+        # Note: Les dimensions sont écrites dans write_config_to_block() selon la présence de pieds
+        # (C7 si pieds détectés, C6 sinon). C13 est réservé pour CHEVET.
+    
+    def ecrire_finition_structure_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                                       description: str, left_col: str, right_col: str) -> None:
+        """
+        Détecte et écrit toutes les finitions de la structure dans Excel.
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article
+            left_col: Colonne gauche du bloc (B, D, F, H, J, N, P, R, T, V)
+            right_col: Colonne droite du bloc (C, E, G, I, K, O, Q, S, U, W)
+        """
+        finitions = self.detecter_finition_structure(description)
+        
+        if not finitions:
+            return
+        
+        # Mapping des types vers les lignes Excel
+        ligne_mapping = {
+            "MULTIPLIS": 25,   # B25, D25, F25...
+            "PAREMENTEE": 26,  # B26, D26, F26...
+            "HETRE": 27,       # B27, D27, F27...
+            "FRENE": 28,       # B28, D28, F28...
+            "CHENE": 29,       # B29, D29, F29...
+        }
+        
+        # Écrire toutes les finitions détectées
+        for type_finition, texte in finitions:
+            ligne = ligne_mapping.get(type_finition)
+            if ligne:
+                # Écrire "X" dans la colonne gauche
+                cell_address_left = f"{left_col}{ligne}"
+                worksheet[cell_address_left] = "X"
+                logger.info(f"Écriture finition structure: {cell_address_left} = X ({type_finition})")
+                
+                # Écrire le texte (sans dimensions) dans la colonne droite
+                if texte:
+                    cell_address_right = f"{right_col}{ligne}"
+                    worksheet[cell_address_right] = texte
+                    logger.info(f"Écriture texte finition: {cell_address_right} = {texte[:50]}...")
+    
+    def ecrire_telecommande_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                                  description: str, left_col: str) -> None:
+        """
+        Détecte et écrit le type de télécommande dans Excel.
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article
+            left_col: Colonne gauche du bloc (B, D, F, H, J, N, P, R, T, V)
+        """
+        type_telecommande = self.detecter_telecommande_type(description)
+        
+        if not type_telecommande:
+            return
+        
+        # Mapping des types vers les lignes Excel
+        if type_telecommande == "RADIO":
+            # RADIO/SANS FIL/SS FIL → B23, D23, F23...
+            cell_address = f"{left_col}23"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture télécommande radio: {cell_address} = X")
+        else:
+            # STANDARD → B22, D22, F22...
+            cell_address = f"{left_col}22"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture télécommande standard: {cell_address} = X")
+    
+    def detecter_lot_rampes(self, description: str) -> bool:
+        """
+        Détecte "LOT DE 2 RAMPES" dans la description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            True si "LOT DE 2 RAMPES" est détecté, False sinon
+        """
+        if not description:
+            return False
+        
+        desc_upper = description.upper()
+        return "LOT DE 2 RAMPES" in desc_upper
+    
+    def detecter_lattes_dessus(self, description: str) -> bool:
+        """
+        Détecte "LATTES DESSUS" dans la description.
+        
+        Args:
+            description: Description de l'article
+            
+        Returns:
+            True si "LATTES DESSUS" est détecté, False sinon
+        """
+        if not description:
+            return False
+        
+        desc_upper = description.upper()
+        return "LATTES DESSUS" in desc_upper
+    
+    def calculer_dimensions_modifiees(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                                     description: str, left_col: str, right_col: str,
+                                     dimensions_originales: Optional[tuple] = None) -> Optional[str]:
+        """
+        Calcule les dimensions jumeaux selon les règles basées sur le type de sommier et la finition.
+
+        Règles observées depuis le fichier corrigé :
+        - Motorisé/Manuel (TT/TPR) :
+          * PAREMENTÉE/CHÊNE : largeur -10, hauteur fixe 140
+          * HÊTRE/FRÊNE/MULTIPLIS : largeur -6, hauteur fixe 140
+        - FIXE :
+          * Pas de déduction, dimensions conservées telles quelles
+          * Hauteur décimale formatée avec virgule (ex: 11,5)
+
+        La longueur est toujours la longueur originale * 10.
+        """
+        if not dimensions_originales:
+            return None
+
+        largeur_cm, longueur_cm, hauteur_cm = dimensions_originales
+
+        # Dimensions de base en mm (sans arrondi)
+        largeur_mm = int(largeur_cm * 10)
+        longueur_mm = int(longueur_cm * 10)
+        hauteur_mm = int(hauteur_cm * 10)
+
+        # Détecter le type de sommier
+        type_sommier = self.detecter_type_sommier_fixe_manuel_motorise(description)
+
+        # Détecter la finition
+        finitions = self.detecter_finition_structure(description)
+        finition_types = [f[0] for f in finitions]
+
+        # Détecter LATTES DESSUS
+        has_lattes_dessus = self.detecter_lattes_dessus(description)
+
+        # Appliquer les règles de calcul des jumeaux
+        nouvelle_largeur = largeur_mm
+        nouvelle_longueur = longueur_mm
+        nouvelle_hauteur = hauteur_mm
+
+        if type_sommier in ["TPR", "TT_TENON", "TT_TPR"]:
+            # Motorisé ou Relaxation manuelle : hauteur fixe 140mm
+            nouvelle_hauteur = 140
+            if "PAREMENTEE" in finition_types or "CHENE" in finition_types:
+                nouvelle_largeur = largeur_mm - 10
+            elif "HETRE" in finition_types or "FRENE" in finition_types or "MULTIPLIS" in finition_types:
+                nouvelle_largeur = largeur_mm - 6
+
+        elif type_sommier == "FIXE":
+            # FIXE : pas de déduction sur la largeur, dimensions conservées telles quelles
+            pass
+
+        # Formater la chaîne de résultat
+        # Utiliser virgule pour hauteur si c'est un nombre décimal (ex: 11,5)
+        if hauteur_cm != int(hauteur_cm) and type_sommier == "FIXE":
+            hauteur_str = str(hauteur_cm).replace('.', ',')
+            resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {hauteur_str}"
+        else:
+            resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {nouvelle_hauteur}"
+
+        logger.info(f"Dimensions jumeaux calculées: {resultat} (type: {type_sommier}, finitions: {finition_types}, lattes_dessus: {has_lattes_dessus})")
+
+        return resultat
+    
+    def ecrire_lot_rampes_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                               description: str, left_col: str) -> None:
+        """
+        Détecte "LOT DE 2 RAMPES" et écrit "X" en B54, D54, F54...
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article
+            left_col: Colonne gauche du bloc (B, D, F, H, J, N, P, R, T, V)
+        """
+        if self.detecter_lot_rampes(description):
+            cell_address = f"{left_col}54"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture lot rampes: {cell_address} = X")
+    
+    def ecrire_type_pieds_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                               description: str, left_col: str, right_col: str) -> None:
+        """
+        Écrit un "X" dans la cellule Excel appropriée selon le type de pieds détecté,
+        et écrit le nombre de pieds + texte dans la colonne droite à la ligne + 1.
+        Détecte aussi PLATINE DE REUNION et les types de patins.
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article contenant les pieds
+            left_col: Colonne gauche du bloc (B, D, F, H, J, N, P, R, T, V)
+            right_col: Colonne droite du bloc (C, E, G, I, K, O, Q, S, U, W)
+        """
+        # Détecter le type de pieds
+        type_pieds = self.detecter_type_pieds(description)
+        
+        if type_pieds:
+            # Mapping des types vers les lignes Excel
+            ligne_mapping = {
+                "ANGLE_CUBIQUE": 33,  # B33, D33, F33...
+                "ANGLE_DROIT": 35,    # B35, D35, F35...
+                "ANGLE_GALBE": 34,    # B34, D34, F34...
+                "CUBIQUE": 36,        # B36, D36, F36...
+                "CYLINDRE": 37,       # B37, D37, F37...
+            }
+            
+            ligne = ligne_mapping.get(type_pieds)
+            if ligne:
+                # Écrire "X" dans la colonne gauche
+                cell_address_left = f"{left_col}{ligne}"
+                worksheet[cell_address_left] = "X"
+                logger.info(f"Écriture type pieds: {cell_address_left} = X ({type_pieds})")
+                
+                # Extraire le nombre de pieds
+                nb_pieds = self.extraire_nombre_pieds(description)
+                
+                # Extraire le texte entre le type et le premier "+"
+                texte_apres_type = self.extraire_texte_apres_type(description, type_pieds)
+                
+                # Écrire dans la colonne droite sur la même ligne que le "X" seulement si on a un nombre ET un texte
+                if nb_pieds is not None and texte_apres_type:
+                    cell_address_right = f"{right_col}{ligne}"
+                    valeur = f"{nb_pieds}x {texte_apres_type}"
+                    worksheet[cell_address_right] = valeur
+                    logger.info(f"Écriture type pieds: {cell_address_right} = {valeur}")
+        
+        # Détecter et écrire PLATINE DE REUNION (indépendamment du type de pieds)
+        if self.detecter_platine_reunion(description):
+            cell_address_platine = f"{left_col}39"
+            worksheet[cell_address_platine] = "X"
+            logger.info(f"Écriture platine réunion: {cell_address_platine} = X")
+
+        # Détecter et écrire PIEDS CENTRAUX / PIED CENTRAL
+        desc_pieds_upper = description.upper()
+        if "PIED CENTRAL" in desc_pieds_upper or "PIEDS CENTRAUX" in desc_pieds_upper:
+            cell_address_centraux = f"{left_col}40"
+            worksheet[cell_address_centraux] = "X"
+            logger.info(f"Écriture pieds centraux: {cell_address_centraux} = X")
+            # Extraire le nombre de pieds centraux si mentionné
+            match_nb = re.search(r'(\d+)\s*PIED(?:S)?\s*CENTR', desc_pieds_upper)
+            if match_nb:
+                nb_centraux = int(match_nb.group(1))
+                worksheet[f"{right_col}40"] = nb_centraux
+                logger.info(f"Nombre pieds centraux: {right_col}40 = {nb_centraux}")
+
+        # Détecter et écrire le type de patin (indépendamment du type de pieds)
+        type_patin = self.detecter_type_patin(description)
+        if type_patin:
+            ligne_patin_mapping = {
+                "FEUTRE": 41,      # B41, D41, F41...
+                "CARRELAGE": 42,   # B42, D42, F42...
+                "TEFLON": 43,      # B43, D43, F43...
+            }
+            ligne_patin = ligne_patin_mapping.get(type_patin)
+            if ligne_patin:
+                cell_address_patin = f"{left_col}{ligne_patin}"
+                worksheet[cell_address_patin] = "X"
+                logger.info(f"Écriture type patin: {cell_address_patin} = X ({type_patin})")
+    
     def write_config_to_block(self, worksheet: openpyxl.worksheet.worksheet.Worksheet, 
                              config_json: Dict, left_col: str, right_col: str) -> None:
         """
@@ -318,20 +1238,283 @@ class ExcelSommierImporter:
             left_col: Colonne de gauche
             right_col: Colonne de droite
         """
+        self._clear_block(worksheet, left_col, right_col)
+        # Vérifier si PAREMENTEE est détecté pour forcer MULTIPLIS à vide dans Excel
+        description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
+        has_paremente = False
+        if description_sommier:
+            desc_upper = description_sommier.upper()
+            desc_normalized = description_sommier.upper().replace('É', 'E').replace('Ê', 'E')
+            if ("STRUCTURE PAREMENTEE" in desc_normalized or 
+                "STRUCTURE PAREMENTÉE" in desc_upper or 
+                "PAREMENTE" in desc_normalized or
+                "PAREMENTÉE" in desc_upper):
+                has_paremente = True
+                logger.info(f"PAREMENTEE détecté dans write_config_to_block: {description_sommier[:100]}")
+        has_sommier_article = False
+        
         # Mapper les données vers les cellules
         cell_mappings = self.map_json_to_cells(config_json, left_col, right_col)
         
+        # Si PAREMENTEE est détecté, forcer les cellules MULTIPLIS à vide dans Excel
+        if has_paremente:
+            # Les champs MULTIPLIS sont mappés vers right_col}76, right_col}79, right_col}80
+            # Forcer ces cellules à vide même si elles sont dans cell_mappings
+            multiplis_cells = [
+                f"{right_col}76",  # Finition_Multiplis_D76
+                f"{right_col}79",  # Finition_Multiplis_TV_D79
+                f"{right_col}80",  # Finition_Multiplis_L_D80
+            ]
+            for cell_addr in multiplis_cells:
+                if cell_addr in cell_mappings:
+                    cell_mappings[cell_addr] = ''
+                    logger.info(f"MULTIPLIS forcé à vide dans Excel (write_config_to_block): {cell_addr}")
+                # Aussi forcer directement dans Excel pour être sûr
+                worksheet[cell_addr] = ''
+                logger.info(f"MULTIPLIS forcé à vide directement dans Excel: {cell_addr}")
+        
         # Écrire les données
         for cell_address, value in cell_mappings.items():
-            worksheet[cell_address] = value
-            logger.info(f"Écriture: {cell_address} = {value}")
-            
-            # Appliquer l'alignement
-            json_key = next((k for k, v in cell_mappings.items() if v == value), "")
-            self.apply_cell_alignment(worksheet, cell_address, json_key)
+            # Ne pas écrire les valeurs vides (sauf si explicitement forcé à vide)
+            if value:
+                # Simplifier le nom client : extraire uniquement le nom de famille
+                if cell_address.endswith("1") and cell_address[:-1] in [right_col]:
+                    value = self.extraire_nom_famille(value)
+
+                worksheet[cell_address] = value
+                logger.info(f"Écriture: {cell_address} = {value}")
+
+                # Appliquer l'alignement
+                json_key = next((k for k, v in cell_mappings.items() if v == value), "")
+                self.apply_cell_alignment(worksheet, cell_address, json_key)
         
+        # Écrire les champs d'opération dans la colonne gauche du bloc (left_col)
+        # B56, D56, F56... pour emporte_client_C57
+        if config_json.get("emporte_client_C57") == "X":
+            cell_address = f"{left_col}56"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture opération: {cell_address} = X (emporte_client_C57)")
+
+        # B57, D57, F57... pour fourgon_C58
+        if config_json.get("fourgon_C58") == "X":
+            cell_address = f"{left_col}57"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture opération: {cell_address} = X (fourgon_C58)")
+
+        # B58, D58, F58... pour transporteur_C59
+        if config_json.get("transporteur_C59") == "X":
+            cell_address = f"{left_col}58"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture opération: {cell_address} = X (transporteur_C59)")
+        
+        # Écrire les champs de pieds dans la colonne gauche du bloc (left_col)
+        # B40, D40, F40... pour Pieds_Centraux_D72
+        if config_json.get("Pieds_Centraux_D72") == "X":
+            cell_address = f"{left_col}40"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture pieds: {cell_address} = X (Pieds_Centraux_D72)")
+        
+        # B46, D46, F46... pour Butees_Pieds_D61
+        if config_json.get("Butees_Pieds_D61") == "X":
+            cell_address = f"{left_col}46"
+            worksheet[cell_address] = "X"
+            logger.info(f"Écriture pieds: {cell_address} = X (Butees_Pieds_D61)")
+        
+        # NOTE: Sommier_Pieds_D50 n'est plus écrit nulle part
+        
+        # Détecter et écrire les types de pieds depuis les articles
+        # Chercher dans plusieurs emplacements possibles pour les descriptions de pieds
+        
+        # Détecter si des pieds sont présents dans la commande
+        has_pieds = False
+        dimensions_sommier = None
+        
+        # 1. Chercher dans les articles directement dans config_json
+        # Utiliser un set pour tracker ce qui a déjà été écrit dans ce bloc pour éviter les doublons
+        articles_traites = set()
+        articles = config_json.get("articles", [])
+        if isinstance(articles, list):
+            for article in articles:
+                if isinstance(article, dict):
+                    description = article.get("description", "")
+                    if not description:
+                        continue
+                    
+                    # Créer un identifiant unique pour cet article (pour éviter les doublons)
+                    article_id = f"{article.get('type', '')}_{description[:50]}"
+                    if article_id in articles_traites:
+                        continue  # Déjà traité
+                    articles_traites.add(article_id)
+                    
+                    # Détecter si c'est un article de pieds
+                    if self.detecter_type_pieds(description) or "PIEDS" in description.upper():
+                        has_pieds = True
+                    
+                    # Détecter et écrire TETE DROITE AJOUREE, TETE/TÊTE, DOSSERET et CHEVET
+                    # (seulement si ce n'est pas déjà écrit dans ce bloc)
+                    self.ecrire_tete_dosseret_excel(worksheet, description, left_col, right_col)
+                    
+                    # Détecter et écrire la finition de la structure
+                    # (seulement si ce n'est pas déjà écrit dans ce bloc)
+                    self.ecrire_finition_structure_excel(worksheet, description, left_col, right_col)
+                    
+                    # Détecter et écrire le type de télécommande
+                    # (seulement si ce n'est pas déjà écrit dans ce bloc)
+                    self.ecrire_telecommande_excel(worksheet, description, left_col)
+                    
+                    # Détecter et écrire les informations de sommier (JUMEAUX, dimensions)
+                    # (seulement pour les articles de sommier, pas pour tous les articles)
+                    if description.upper().startswith("SOMMIER") or description.upper().startswith("SOMMIERS"):
+                        has_sommier_article = True
+                        self.ecrire_sommier_excel(worksheet, description, left_col, right_col)
+                        
+                        # Détecter et écrire le type de sommier (FIXE, MANUEL, MOTORISE)
+                        self.ecrire_type_sommier_fixe_manuel_motorise_excel(worksheet, description, left_col, right_col)
+                        
+                        # Extraire les dimensions du sommier si présent
+                        dims = self.extraire_dimensions_sommier(description)
+                        if dims:
+                            dimensions_sommier = self.formater_dimensions_sommier(dims)
+                    
+                    # Détecter et écrire le type de pieds
+                    self.ecrire_type_pieds_excel(worksheet, description, left_col, right_col)
+                    
+                    # Détecter et écrire LOT DE 2 RAMPES
+                    self.ecrire_lot_rampes_excel(worksheet, description, left_col)
+        
+        # 2. Chercher dans la description du sommier lui-même (peut contenir des infos sur les pieds)
+        # Vérifier si cette description n'a pas déjà été traitée dans la boucle des articles
+        description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
+        if description_sommier:
+            # Vérifier si cette description a déjà été traitée dans les articles
+            description_already_processed = False
+            if isinstance(articles, list):
+                for article in articles:
+                    if isinstance(article, dict):
+                        article_desc = article.get("description", "")
+                        if article_desc == description_sommier:
+                            description_already_processed = True
+                            break
+            
+            # Si la description n'a pas été traitée dans les articles, la traiter maintenant
+            if not description_already_processed:
+                # Détecter si c'est un article de pieds
+                if self.detecter_type_pieds(description_sommier) or "PIEDS" in description_sommier.upper():
+                    has_pieds = True
+                
+                # Détecter et écrire TETE DROITE AJOUREE, TETE/TÊTE, DOSSERET et CHEVET
+                self.ecrire_tete_dosseret_excel(worksheet, description_sommier, left_col, right_col)
+                
+                # Détecter et écrire la finition de la structure
+                self.ecrire_finition_structure_excel(worksheet, description_sommier, left_col, right_col)
+                
+                # Détecter et écrire le type de télécommande
+                self.ecrire_telecommande_excel(worksheet, description_sommier, left_col)
+                
+                # Détecter et écrire les informations de sommier (JUMEAUX, dimensions)
+                # (toujours traiter la description du sommier même si déjà dans les articles)
+                self.ecrire_sommier_excel(worksheet, description_sommier, left_col, right_col)
+                if description_sommier.upper().startswith("SOMMIER") or description_sommier.upper().startswith("SOMMIERS"):
+                    has_sommier_article = True
+                
+                # Détecter et écrire le type de sommier (FIXE, MANUEL, MOTORISE)
+                self.ecrire_type_sommier_fixe_manuel_motorise_excel(worksheet, description_sommier, left_col, right_col)
+                
+                # Extraire les dimensions du sommier si présent
+                if description_sommier.upper().startswith("SOMMIER") or description_sommier.upper().startswith("SOMMIERS"):
+                    dims = self.extraire_dimensions_sommier(description_sommier)
+                    if dims:
+                        dimensions_sommier = self.formater_dimensions_sommier(dims)
+                
+                self.ecrire_type_pieds_excel(worksheet, description_sommier, left_col, right_col)
+                
+                # Détecter et écrire LOT DE 2 RAMPES
+                self.ecrire_lot_rampes_excel(worksheet, description_sommier, left_col)
+            else:
+                # La description a déjà été traitée, mais on doit quand même extraire les dimensions du sommier
+                if description_sommier.upper().startswith("SOMMIER") or description_sommier.upper().startswith("SOMMIERS"):
+                    dims = self.extraire_dimensions_sommier(description_sommier)
+                    if dims:
+                        dimensions_sommier = self.formater_dimensions_sommier(dims)
+        
+        # 3. Chercher dans les articles de pieds segmentés (si disponibles)
+        pieds_segmentes = config_json.get("pieds_segmentes", {})
+        if isinstance(pieds_segmentes, dict) and pieds_segmentes:
+            has_pieds = True
+            type_pied = pieds_segmentes.get("type_pied", "")
+            if type_pied:
+                # Reconstruire une description pour la détection
+                desc_pieds = f"{type_pied}"
+                self.ecrire_type_pieds_excel(worksheet, desc_pieds, left_col, right_col)
+        
+        # Écrire les dimensions du sommier selon la présence de pieds
+        dimensions_originales_tuple = None
+        if dimensions_sommier:
+            if has_pieds:
+                # Si des pieds sont trouvés : écrire en C7 et "X" en B7
+                cell_address_left = f"{left_col}7"
+                cell_address_right = f"{right_col}7"
+                worksheet[cell_address_left] = "X"
+                worksheet[cell_address_right] = dimensions_sommier
+                logger.info(f"Écriture dimensions avec pieds: {cell_address_left} = X, {cell_address_right} = {dimensions_sommier}")
+            else:
+                # Sinon : écrire en C6 et "X" en B6
+                cell_address_left = f"{left_col}6"
+                cell_address_right = f"{right_col}6"
+                worksheet[cell_address_left] = "X"
+                worksheet[cell_address_right] = dimensions_sommier
+                logger.info(f"Écriture dimensions sans pieds: {cell_address_left} = X, {cell_address_right} = {dimensions_sommier}")
+            
+            # Extraire les dimensions originales pour le calcul des dimensions modifiées
+            description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
+            if description_sommier:
+                dims = self.extraire_dimensions_sommier(description_sommier)
+                if dims:
+                    dimensions_originales_tuple = dims
+        
+        # Calculer et écrire les dimensions modifiées si applicable
+        description_sommier = config_json.get("description", "") or config_json.get("article_description", "")
+        if description_sommier and dimensions_originales_tuple:
+            dimensions_modifiees = self.calculer_dimensions_modifiees(
+                worksheet, description_sommier, left_col, right_col, dimensions_originales_tuple
+            )
+            if dimensions_modifiees:
+                # Écrire les dimensions modifiées en C11 ou C12 selon la coche en B11 ou B12
+                cell_b11 = f"{left_col}11"
+                cell_b12 = f"{left_col}12"
+                
+                if worksheet[cell_b11].value == "X":
+                    # JUMEAUX détecté -> écrire en C11
+                    cell_address_dim_mod = f"{right_col}11"
+                    worksheet[cell_address_dim_mod] = dimensions_modifiees
+                    logger.info(f"Écriture dimensions modifiées (JUMEAUX): {cell_address_dim_mod} = {dimensions_modifiees}")
+                elif worksheet[cell_b12].value == "X":
+                    # Pas de JUMEAUX -> écrire en C12
+                    cell_address_dim_mod = f"{right_col}12"
+                    worksheet[cell_address_dim_mod] = dimensions_modifiees
+                    logger.info(f"Écriture dimensions modifiées (standard): {cell_address_dim_mod} = {dimensions_modifiees}")
+                else:
+                    # Par défaut, essayer de détecter depuis la description
+                    is_jumeaux = self.detecter_sommier_jumeaux(description_sommier)
+                    if is_jumeaux:
+                        cell_address_dim_mod = f"{right_col}11"
+                    else:
+                        cell_address_dim_mod = f"{right_col}12"
+                    worksheet[cell_address_dim_mod] = dimensions_modifiees
+                    logger.info(f"Écriture dimensions modifiées (détection): {cell_address_dim_mod} = {dimensions_modifiees}")
+        
+        
+        cell_address_31 = f"{left_col}31"
+        if has_sommier_article or config_json.get("type_article", "sommier") == "sommier":
+            worksheet[cell_address_31] = "X"
+            logger.info(f"Écriture sommier détecté: {cell_address_31} = X (ligne 31)")
+        else:
+            worksheet[cell_address_31] = None
+            logger.info(f"Bloc accessoires uniquement: {cell_address_31} laissé vide")
+
         # Centrer toutes les cellules du bloc
         self.center_block_cells(worksheet, left_col, right_col)
+        self.total_written_cases += 1
 
     def create_new_file(self, semaine: str, id_fichier: str) -> openpyxl.Workbook:
         """
@@ -413,14 +1596,14 @@ class ExcelSommierImporter:
         # Crée le dossier de sortie s'il n'existe pas
         os.makedirs(output_dir, exist_ok=True)
         
-        # Auto-ajuster la largeur des colonnes C, E, G, I, K, M, O, Q, S, U, W basé sur le contenu de la ligne 2
+        # Auto-ajuster la largeur des colonnes B, D, F, H, J, N, P, R, T, V (colonnes gauches des blocs) basé sur le contenu de la ligne 2
         if workbook.active:
             ws = workbook.active
-            columns_to_adjust = ['C', 'E', 'G', 'I', 'K', 'M', 'O', 'Q', 'S', 'U', 'W']
+            columns_to_adjust = ['B', 'D', 'F', 'H', 'J', 'N', 'P', 'R', 'T', 'V']
             
             for col_letter in columns_to_adjust:
                 try:
-                    # Récupérer le contenu de la cellule en ligne 2 (ex: C2, E2, G2...)
+                    # Récupérer le contenu de la cellule en ligne 2 (ex: B2, D2, F2...)
                     cell_value = ws[f'{col_letter}2'].value
                     if cell_value:
                         # Calculer la largeur basée sur le contenu exact + petite marge
@@ -435,7 +1618,8 @@ class ExcelSommierImporter:
         workbook.save(filepath)
         logger.info(f"Fichier sommier sauvegardé: {filepath}")
         
-        return filepath
+        # Retourner le chemin absolu pour éviter les problèmes de résolution
+        return os.path.abspath(filepath)
     
     def import_configurations(self, configurations: List[Dict], semaine: str, id_fichier: str) -> List[str]:
         """
@@ -450,6 +1634,7 @@ class ExcelSommierImporter:
             Liste des fichiers créés
         """
         created_files = []
+        self.total_written_cases = 0
 
         # Utiliser le répertoire de sortie configuré
         try:
@@ -536,16 +1721,29 @@ class ExcelSommierImporter:
             left_col, right_col = empty_block
             
             # Écrit la configuration dans le bloc
-            self.write_config_to_block(self.current_worksheet, config, left_col, right_col)
-            
-            self.current_case_count += 1
-            logger.info(f"Configuration sommier {i+1} écrite dans le bloc {left_col}-{right_col}")
+            try:
+                self.write_config_to_block(self.current_worksheet, config, left_col, right_col)
+                self.current_case_count += 1
+                logger.info(f"Configuration sommier {i+1} écrite dans le bloc {left_col}-{right_col}")
+            except Exception as e:
+                logger.error(f"Erreur lors de l'écriture du sommier {i+1} dans le bloc {left_col}-{right_col}: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                # Continue avec le sommier suivant même en cas d'erreur
+                continue
         
         # Sauvegarde le dernier fichier
         if self.current_workbook:
             filepath = self.save_workbook(self.current_workbook, semaine, id_fichier)
             created_files.append(filepath)
         
+        if self.total_written_cases != len(configurations):
+            msg = (
+                f"Nombre de blocs écrits ({self.total_written_cases}) "
+                f"différent du nombre de configurations ({len(configurations)})"
+            )
+            logger.error(msg)
+            raise RuntimeError(msg)
         logger.info(f"Import sommier terminé. {len(created_files)} fichier(s) créé(s)")
         return created_files
 
