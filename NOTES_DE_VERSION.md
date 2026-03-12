@@ -1,5 +1,23 @@
 # Notes de version - Literie Processor
 
+## 2026-03-12 — Mise en forme Excel et tri des commandes sommiers
+
+### Mise en forme
+- Retour à la ligne automatique (wrap text) sur les cellules de description longues
+- Largeur minimale 25 pour les colonnes de description (commandes 6+ désormais lisibles)
+- Colonnes coches (B, D, F...) ajustées au contenu
+
+### Tri des commandes
+- Tri automatique par type de sommier :
+  1. Motorisé (TT embout sur tenon + TT embout TPR)
+  2. TPR (relaxation manuelle)
+  3. LAF 3 côtés
+  4. LAF 4 côtés
+  5. Lattes dessous
+  6. Lattes dessus
+
+---
+
 ## 2026-03-11 — Sommiers : pipeline PDF et corrections Excel
 
 ### Extraction PDF

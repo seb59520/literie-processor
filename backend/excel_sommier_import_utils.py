@@ -1730,24 +1730,41 @@ class ExcelSommierImporter:
         # Crée le dossier de sortie s'il n'existe pas
         os.makedirs(output_dir, exist_ok=True)
         
-        # Auto-ajuster la largeur des colonnes B, D, F, H, J, N, P, R, T, V (colonnes gauches des blocs) basé sur le contenu de la ligne 2
+        # Auto-ajuster les largeurs de colonnes
         if workbook.active:
             ws = workbook.active
-            columns_to_adjust = ['B', 'D', 'F', 'H', 'J', 'N', 'P', 'R', 'T', 'V']
-            
-            for col_letter in columns_to_adjust:
+            # Colonnes gauches (coches "X") : largeur compacte basée sur contenu ligne 2
+            left_cols = [b[0] for b in self.column_blocks]
+            # Colonnes droites (descriptions) : largeur minimale 25 pour lisibilité
+            right_cols = [b[1] for b in self.column_blocks]
+
+            for col_letter in left_cols:
                 try:
-                    # Récupérer le contenu de la cellule en ligne 2 (ex: B2, D2, F2...)
                     cell_value = ws[f'{col_letter}2'].value
                     if cell_value:
-                        # Calculer la largeur basée sur le contenu exact + petite marge
                         content_length = len(str(cell_value))
-                        # Largeur minimale 3, avec juste 1 caractère de marge
                         adjusted_width = max(content_length + 1, 3)
                         ws.column_dimensions[col_letter].width = adjusted_width
-                        logger.info(f"📏 Sommier colonne {col_letter}: largeur ajustée à {adjusted_width} (contenu: '{str(cell_value)}' = {content_length} chars)")
                 except Exception as e:
-                    logger.warning(f"⚠️ Erreur ajustement sommier colonne {col_letter}: {e}")
+                    logger.warning(f"Erreur ajustement colonne {col_letter}: {e}")
+
+            for col_letter in right_cols:
+                try:
+                    # S'assurer que les colonnes de description ont au moins 25 de large
+                    current_width = ws.column_dimensions[col_letter].width
+                    if current_width < 25:
+                        ws.column_dimensions[col_letter].width = 25
+                except Exception as e:
+                    logger.warning(f"Erreur ajustement colonne {col_letter}: {e}")
+
+            # Activer le retour à la ligne sur toutes les cellules de description
+            from openpyxl.styles import Alignment
+            for col_letter in right_cols:
+                col_idx = openpyxl.utils.column_index_from_string(col_letter)
+                for row in range(1, 50):
+                    cell = ws.cell(row=row, column=col_idx)
+                    if cell.value and isinstance(cell.value, str) and len(str(cell.value)) > 20:
+                        cell.alignment = Alignment(wrap_text=True, vertical='center')
         
         workbook.save(filepath)
         logger.info(f"Fichier sommier sauvegardé: {filepath}")
@@ -1755,6 +1772,66 @@ class ExcelSommierImporter:
         # Retourner le chemin absolu pour éviter les problèmes de résolution
         return os.path.abspath(filepath)
     
+    def _detecter_type_sommier_pour_tri(self, config: Dict) -> int:
+        """
+        Détermine la priorité de tri d'une configuration sommier.
+        Ordre : 1/ Motorisé (TT_TENON), 2/ TPR, 3/ LAF 3 côtés, 4/ LAF 4 côtés,
+                5/ Lattes dessous, 6/ Lattes dessus, 99/ Autre
+        """
+        articles = config.get("articles", [])
+        description_combined = config.get("description", "")
+
+        # Chercher la description du sommier dans les articles
+        sommier_desc = ""
+        for art in articles:
+            if isinstance(art, dict):
+                desc = art.get("description", "")
+                if desc.upper().lstrip().startswith("SOMMIER"):
+                    sommier_desc = desc
+                    break
+        if not sommier_desc:
+            sommier_desc = description_combined
+
+        desc_upper = sommier_desc.upper()
+        desc_norm = re.sub(r'\s+', ' ', desc_upper)
+
+        # Motorisé télescopique → priorité 1
+        has_motorise = "MOTORIS" in desc_norm
+        has_telescop = "TELESCOP" in desc_norm
+        if has_motorise and has_telescop:
+            return 1
+        # Motorisé non-télescopique (TT_TPR) → priorité 1 aussi
+        if has_motorise:
+            return 1
+
+        # TPR (relaxation manuelle)
+        if "RELAXATION MANUELLE" in desc_norm or "MANUEL" in desc_norm:
+            return 2
+
+        # FIXE → déterminer le sous-type
+        # LAF 3 côtés
+        if "3 COTE" in desc_norm or "3 CÔTÉ" in desc_norm or "3 COTES" in desc_norm:
+            return 3
+        # LAF 4 côtés
+        if "4 COTE" in desc_norm or "4 CÔTÉ" in desc_norm or "4 COTES" in desc_norm:
+            return 4
+        # Lattes dessous
+        if "LATTES DESSOUS" in desc_norm:
+            return 5
+        # Lattes dessus
+        if "LATTES DESSUS" in desc_norm:
+            return 6
+
+        # FIXE sans précision → après les motorisés
+        if "FIXE" in desc_norm:
+            return 7
+
+        return 99
+
+    def _trier_par_type_sommier(self, configurations: List[Dict]) -> List[Dict]:
+        """Trie les configurations par type de sommier selon l'ordre standard."""
+        return sorted(configurations, key=lambda c: self._detecter_type_sommier_pour_tri(c))
+
     def import_configurations(self, configurations: List[Dict], semaine: str, id_fichier: str) -> List[str]:
         """
         Importe une liste de configurations sommier dans Excel
@@ -1825,6 +1902,9 @@ class ExcelSommierImporter:
                 logger.error(f"Erreur lors de l'ajout du numéro de semaine au premier fichier sommier: {e}")
                 print(f"DEBUG ERREUR PREMIER FICHIER SOMMIER: {e}")
         
+        # Trier les configurations par type de sommier
+        configurations = self._trier_par_type_sommier(configurations)
+
         for i, config in enumerate(configurations):
             logger.info(f"Traitement configuration sommier {i+1}/{len(configurations)}")
             
