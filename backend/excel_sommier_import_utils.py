@@ -1128,29 +1128,25 @@ class ExcelSommierImporter:
     
     def calculer_dimensions_modifiees(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
                                      description: str, left_col: str, right_col: str,
-                                     dimensions_originales: Optional[tuple] = None) -> Optional[str]:
+                                     dimensions_originales: Optional[tuple] = None,
+                                     dimensions_literie: Optional[tuple] = None) -> Optional[str]:
         """
         Calcule les dimensions jumeaux selon les règles basées sur le type de sommier et la finition.
 
-        Règles observées depuis le fichier corrigé :
+        Règles :
         - Motorisé/Manuel (TT/TPR) :
-          * PAREMENTÉE/CHÊNE : largeur -10, hauteur fixe 140
-          * HÊTRE/FRÊNE/MULTIPLIS : largeur -6, hauteur fixe 140
+          * Base = dimensions LITERIE (pas SOMMIER structure)
+          * PAREMENTÉE/CHÊNE : largeur -20, longueur -10, hauteur fixe 140
+          * MULTIPLIS/HÊTRE/FRÊNE (laqué) : largeur -16, longueur -10, hauteur fixe 140
         - FIXE :
+          * Base = dimensions SOMMIER structure
           * Pas de déduction, dimensions conservées telles quelles
           * Hauteur décimale formatée avec virgule (ex: 11,5)
-
-        La longueur est toujours la longueur originale * 10.
         """
         if not dimensions_originales:
             return None
 
         largeur_cm, longueur_cm, hauteur_cm = dimensions_originales
-
-        # Dimensions de base en mm (sans arrondi)
-        largeur_mm = int(largeur_cm * 10)
-        longueur_mm = int(longueur_cm * 10)
-        hauteur_mm = int(hauteur_cm * 10)
 
         # Détecter le type de sommier
         type_sommier = self.detecter_type_sommier_fixe_manuel_motorise(description)
@@ -1159,35 +1155,49 @@ class ExcelSommierImporter:
         finitions = self.detecter_finition_structure(description)
         finition_types = [f[0] for f in finitions]
 
-        # Détecter LATTES DESSUS
-        has_lattes_dessus = self.detecter_lattes_dessus(description)
-
-        # Appliquer les règles de calcul des jumeaux
-        nouvelle_largeur = largeur_mm
-        nouvelle_longueur = longueur_mm
-        nouvelle_hauteur = hauteur_mm
-
         if type_sommier in ["TPR", "TT_TENON", "TT_TPR"]:
-            # Motorisé ou Relaxation manuelle : hauteur fixe 140mm
+            # Motorisé ou Relaxation manuelle : base = LITERIE
+            if dimensions_literie:
+                base_largeur = int(dimensions_literie[0] * 10)
+                base_longueur = int(dimensions_literie[1] * 10)
+            else:
+                # Fallback sur SOMMIER si pas de LITERIE
+                base_largeur = int(largeur_cm * 10)
+                base_longueur = int(longueur_cm * 10)
+
             nouvelle_hauteur = 140
             if "PAREMENTEE" in finition_types or "CHENE" in finition_types:
-                nouvelle_largeur = largeur_mm - 10
+                nouvelle_largeur = base_largeur - 20
+                nouvelle_longueur = base_longueur - 10
             elif "HETRE" in finition_types or "FRENE" in finition_types or "MULTIPLIS" in finition_types:
-                nouvelle_largeur = largeur_mm - 6
+                nouvelle_largeur = base_largeur - 16
+                nouvelle_longueur = base_longueur - 10
+            else:
+                nouvelle_largeur = base_largeur
+                nouvelle_longueur = base_longueur
 
-        elif type_sommier == "FIXE":
-            # FIXE : pas de déduction sur la largeur, dimensions conservées telles quelles
-            pass
-
-        # Formater la chaîne de résultat
-        # Utiliser virgule pour hauteur si c'est un nombre décimal (ex: 11,5)
-        if hauteur_cm != int(hauteur_cm) and type_sommier == "FIXE":
-            hauteur_str = str(hauteur_cm).replace('.', ',')
-            resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {hauteur_str}"
-        else:
             resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {nouvelle_hauteur}"
 
-        logger.info(f"Dimensions jumeaux calculées: {resultat} (type: {type_sommier}, finitions: {finition_types}, lattes_dessus: {has_lattes_dessus})")
+        elif type_sommier == "FIXE":
+            # FIXE : base = SOMMIER structure, pas de déduction
+            nouvelle_largeur = int(largeur_cm * 10)
+            nouvelle_longueur = int(longueur_cm * 10)
+            nouvelle_hauteur = int(hauteur_cm * 10)
+
+            # Utiliser virgule pour hauteur décimale (ex: 11,5)
+            if hauteur_cm != int(hauteur_cm):
+                hauteur_str = str(hauteur_cm).replace('.', ',')
+                resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {hauteur_str}"
+            else:
+                resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {nouvelle_hauteur}"
+        else:
+            # Type inconnu : dimensions SOMMIER telles quelles
+            nouvelle_largeur = int(largeur_cm * 10)
+            nouvelle_longueur = int(longueur_cm * 10)
+            nouvelle_hauteur = int(hauteur_cm * 10)
+            resultat = f"{nouvelle_largeur} X {nouvelle_longueur} X {nouvelle_hauteur}"
+
+        logger.info(f"Dimensions jumeaux calculées: {resultat} (type: {type_sommier}, finitions: {finition_types})")
 
         return resultat
     
@@ -1531,7 +1541,9 @@ class ExcelSommierImporter:
         
         # Chercher les dimensions LITERIE dans les articles (format "LITERIE ... 160/200/64 CM")
         # Pour row 7, on utilise les dimensions LITERIE (taille du lit), pas les dimensions structure
+        # dimensions_literie_tuple sert aussi de base pour le calcul row 11 (jumeaux)
         dimensions_literie = None
+        dimensions_literie_tuple = None
         if isinstance(articles, list):
             for article in articles:
                 if isinstance(article, dict):
@@ -1553,6 +1565,7 @@ class ExcelSommierImporter:
                                             if ds:
                                                 hauteur_sommier = ds[2]
                                                 break
+                            dimensions_literie_tuple = dims_lit  # (largeur, longueur, hauteur) LITERIE brutes
                             dimensions_literie = self.formater_dimensions_sommier((dims_lit[0], dims_lit[1], hauteur_sommier if hauteur_sommier else dims_lit[2]))
                             logger.info(f"Dimensions LITERIE trouvées: {dims_lit} → {dimensions_literie}")
                             break
@@ -1625,7 +1638,8 @@ class ExcelSommierImporter:
                 description_sommier = _strip_pdf_boilerplate(description_sommier)
         if description_sommier and dimensions_originales_tuple:
             dimensions_modifiees = self.calculer_dimensions_modifiees(
-                worksheet, description_sommier, left_col, right_col, dimensions_originales_tuple
+                worksheet, description_sommier, left_col, right_col, dimensions_originales_tuple,
+                dimensions_literie=dimensions_literie_tuple
             )
             if dimensions_modifiees:
                 # Écrire les dimensions modifiées en C11 ou C12 selon la coche en B11 ou B12
