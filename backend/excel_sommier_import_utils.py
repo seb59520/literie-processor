@@ -12,6 +12,11 @@ import logging
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment, PatternFill
+
+# Fills pour dosseret/parementage
+BLUE_FILL = PatternFill(start_color="FF4472C4", end_color="FF4472C4", fill_type="solid")
+WHITE_FILL = PatternFill(start_color="FFFFFFFF", end_color="FFFFFFFF", fill_type="solid")
 
 # Patterns pour détecter et supprimer le boilerplate PDF de page 2
 # (en-tête de Literie Westelynck qui se retrouve en fin d'article quand le PDF a 2 pages)
@@ -858,13 +863,14 @@ class ExcelSommierImporter:
         # Détecter DOSSERET (insensible à la casse) - l'article doit commencer par DOSSERET
         # Exclure les mentions incidentes ("JUMEAUX SUR DOSSERET", "pour dosseret + sommier")
         elif desc_upper.startswith("DOSSERET"):
-            # Écrire "X" en B10, D10, F10...
-            cell_address_left = f"{left_col}10"
-            worksheet[cell_address_left] = "X"
-            logger.info(f"Écriture DOSSERET: {cell_address_left} = X")
+            # Écrire "X" en B10, D10, F10... avec fond bleu
+            cell_left = worksheet[f"{left_col}10"]
+            cell_left.value = "X"
+            cell_left.fill = BLUE_FILL
+            logger.info(f"Écriture DOSSERET: {left_col}10 = X (fond bleu)")
 
-            # Copier la description nettoyée en C10, E10, G10... (même ligne)
-            cell_address_right = f"{right_col}10"
+            # Copier la description nettoyée en C10, E10, G10... avec fond blanc
+            cell_right = worksheet[f"{right_col}10"]
             # Nettoyer: normaliser espaces, supprimer après "BASE SOMMIERS"
             desc_clean = re.sub(r'\s+', ' ', description).strip()
             # Couper après "BASE SOMMIERS" si présent
@@ -875,8 +881,9 @@ class ExcelSommierImporter:
             desc_clean = re.sub(r'\s*/\s*', '/', desc_clean)
             # Supprimer les accents pour uniformiser
             desc_clean = unicodedata.normalize('NFKD', desc_clean).encode('ASCII', 'ignore').decode('ASCII')
-            worksheet[cell_address_right] = desc_clean
-            logger.info(f"Écriture description DOSSERET: {cell_address_right} = {desc_clean[:50]}...")
+            cell_right.value = desc_clean
+            cell_right.fill = WHITE_FILL
+            logger.info(f"Écriture description DOSSERET: {right_col}10 = {desc_clean[:50]}...")
         
         # Détecter CHEVET, TIROIR ou NICHE
         if "CHEVET" in desc_upper or "TIROIR" in desc_upper or "NICHE" in desc_upper:
@@ -943,10 +950,11 @@ class ExcelSommierImporter:
             return
 
         # Mapping des types vers les lignes Excel du template
+        # Note: TT_TPR redirigé vers row 21 (même ligne que TT_TENON)
         ligne_mapping = {
             "FIXE": 18,       # row 18 = FIXE
             "TPR": 19,        # row 19 = TPR
-            "TT_TPR": 20,     # row 20 = TT embout TPR
+            "TT_TPR": 21,     # row 21 = TT embout sur TENON (fusionné)
             "TT_TENON": 21,   # row 21 = TT embout sur TENON
         }
 
@@ -1041,15 +1049,21 @@ class ExcelSommierImporter:
             ligne = ligne_mapping.get(type_finition)
             if ligne:
                 # Écrire "X" dans la colonne gauche
-                cell_address_left = f"{left_col}{ligne}"
-                worksheet[cell_address_left] = "X"
-                logger.info(f"Écriture finition structure: {cell_address_left} = X ({type_finition})")
-                
+                cell_left = worksheet[f"{left_col}{ligne}"]
+                cell_left.value = "X"
+                logger.info(f"Écriture finition structure: {left_col}{ligne} = X ({type_finition})")
+
+                # Pour PAREMENTEE : fond bleu sur la case, fond blanc sur le texte
+                if type_finition == "PAREMENTEE":
+                    cell_left.fill = BLUE_FILL
+
                 # Écrire le texte (sans dimensions) dans la colonne droite
                 if texte:
-                    cell_address_right = f"{right_col}{ligne}"
-                    worksheet[cell_address_right] = texte
-                    logger.info(f"Écriture texte finition: {cell_address_right} = {texte[:50]}...")
+                    cell_right = worksheet[f"{right_col}{ligne}"]
+                    cell_right.value = texte
+                    if type_finition == "PAREMENTEE":
+                        cell_right.fill = WHITE_FILL
+                    logger.info(f"Écriture texte finition: {right_col}{ligne} = {texte[:50]}...")
     
     def ecrire_telecommande_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
                                   description: str, left_col: str) -> None:
@@ -1758,7 +1772,6 @@ class ExcelSommierImporter:
                     logger.warning(f"Erreur ajustement colonne {col_letter}: {e}")
 
             # Activer le retour à la ligne sur toutes les cellules de description
-            from openpyxl.styles import Alignment
             for col_letter in right_cols:
                 col_idx = openpyxl.utils.column_index_from_string(col_letter)
                 for row in range(1, 50):
