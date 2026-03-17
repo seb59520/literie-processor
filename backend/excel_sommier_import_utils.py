@@ -871,7 +871,7 @@ class ExcelSommierImporter:
 
             # Copier la description nettoyée en C10, E10, G10... avec fond blanc
             cell_right = worksheet[f"{right_col}10"]
-            # Nettoyer: normaliser espaces, supprimer après "BASE SOMMIERS"
+            # Nettoyer: normaliser multi-espaces, supprimer après "BASE SOMMIERS"
             desc_clean = re.sub(r'\s+', ' ', description).strip()
             # Couper après "BASE SOMMIERS" si présent
             idx_base = desc_clean.upper().find("BASE SOMMIERS")
@@ -881,6 +881,8 @@ class ExcelSommierImporter:
             desc_clean = re.sub(r'\s*/\s*', '/', desc_clean)
             # Supprimer les accents pour uniformiser
             desc_clean = unicodedata.normalize('NFKD', desc_clean).encode('ASCII', 'ignore').decode('ASCII')
+            # Format titre : "Dosseret droit coins vifs 160/85 base sommiers"
+            desc_clean = desc_clean.capitalize()
             cell_right.value = desc_clean
             cell_right.fill = WHITE_FILL
             logger.info(f"Écriture description DOSSERET: {right_col}10 = {desc_clean[:50]}...")
@@ -1467,7 +1469,6 @@ class ExcelSommierImporter:
                                 # Nettoyer: supprimer tirets, parenthèses de fin
                                 ref_text = ref_text.replace('-', '').strip()
                                 ref_text = re.sub(r'\s*\(.*?\)\s*$', '', ref_text).strip()
-                                ref_text = re.sub(r'\s+', ' ', ref_text)  # normaliser espaces
                                 info_text = f"{match_pvc.group(1).upper()} {ref_text}"
                                 worksheet[cell_info] = info_text
                                 logger.info(f"Écriture métrage sur PAREMENTÉ: {cell_info} = {info_text}")
