@@ -510,6 +510,106 @@ class ExcelMatelasImporter:
         except Exception as e:
             logger.warning(f"Erreur lors du centrage global du bloc {left_col}-{right_col}: {e}")
     
+    def detecter_type_sommier_dans_matelas(self, description: str) -> Optional[str]:
+        """
+        Détecte le type de sommier mentionné dans une description de matelas.
+        
+        Args:
+            description: Description de l'article matelas
+            
+        Returns:
+            Type de sommier détecté: "FIXE", "MANUEL", "MOTORISE", ou None
+        """
+        if not description:
+            return None
+        
+        desc_upper = description.upper()
+        
+        # Détecter SOMMIER FIXE ou SOMMIERS JUMEAUX FIXE (insensible à la casse, singulier/pluriel)
+        if "SOMMIER FIXE" in desc_upper or "SOMMIERS JUMEAUX FIXE" in desc_upper or "SOMMIERS FIXE" in desc_upper:
+            return "FIXE"
+        
+        # Détecter SOMMIER MANUEL ou SOMMIER MANUELLE
+        if "SOMMIER MANUEL" in desc_upper or "SOMMIER MANUELLE" in desc_upper:
+            return "MANUEL"
+        
+        # Détecter SOMMIER MOTORISE
+        if "SOMMIER MOTORISE" in desc_upper or "SOMMIER MOTORISÉ" in desc_upper:
+            return "MOTORISE"
+        
+        return None
+    
+    def detecter_type_lattes(self, description: str) -> Optional[str]:
+        """
+        Détecte le type de lattes dans une description de matelas.
+        
+        Args:
+            description: Description de l'article matelas
+            
+        Returns:
+            Type de lattes détecté: "LAF 3 COTES", "LAF 4 COTES", "LATTES DESSUS", "LATTES DESSOUS", ou None
+        """
+        if not description:
+            return None
+        
+        desc_upper = description.upper()
+        
+        # Détecter LATTES A FLEUR 3 COTES
+        if "LATTES A FLEUR 3 COTES" in desc_upper or "LATTES À FLEUR 3 COTES" in desc_upper:
+            return "LAF 3 COTES"
+        
+        # Détecter LATTES A FLEUR 4 COTES
+        if "LATTES A FLEUR 4 COTES" in desc_upper or "LATTES À FLEUR 4 COTES" in desc_upper:
+            return "LAF 4 COTES"
+        
+        # Détecter LATTES DESSUS
+        if "LATTES DESSUS" in desc_upper:
+            return "LATTES DESSUS"
+        
+        # Détecter LATTES DESSOUS
+        if "LATTES DESSOUS" in desc_upper:
+            return "LATTES DESSOUS"
+        
+        return None
+    
+    def ecrire_type_sommier_matelas_excel(self, worksheet: openpyxl.worksheet.worksheet.Worksheet,
+                                         description: str, left_col: str, right_col: str) -> None:
+        """
+        Écrit un "X" dans la cellule Excel appropriée selon le type de sommier détecté dans une description de matelas,
+        et écrit le type de lattes dans la colonne droite correspondante.
+        
+        Args:
+            worksheet: Feuille de calcul
+            description: Description de l'article matelas
+            left_col: Colonne gauche du bloc (C, E, G, I, K, O, Q, S, U, W)
+            right_col: Colonne droite du bloc (D, F, H, J, L, P, R, T, V, X)
+        """
+        type_sommier = self.detecter_type_sommier_dans_matelas(description)
+        
+        if not type_sommier:
+            return
+        
+        # Mapping des types vers les lignes Excel
+        ligne_mapping = {
+            "FIXE": 18,      # C18, E18, G18...
+            "MANUEL": 19,    # C19, E19, G19...
+            "MOTORISE": 20,  # C20, E20, G20...
+        }
+        
+        ligne = ligne_mapping.get(type_sommier)
+        if ligne:
+            # Écrire "X" dans la colonne gauche
+            cell_address_left = f"{left_col}{ligne}"
+            worksheet[cell_address_left] = "X"
+            logger.info(f"Écriture type sommier dans matelas: {cell_address_left} = X ({type_sommier})")
+            
+            # Détecter et écrire le type de lattes dans la colonne droite
+            type_lattes = self.detecter_type_lattes(description)
+            if type_lattes:
+                cell_address_right = f"{right_col}{ligne}"
+                worksheet[cell_address_right] = type_lattes
+                logger.info(f"Écriture type lattes dans matelas: {cell_address_right} = {type_lattes}")
+    
     def write_config_to_block(self, worksheet: openpyxl.worksheet.worksheet.Worksheet, 
                              config_json: Dict, left_col: str, right_col: str) -> None:
         """
@@ -593,11 +693,34 @@ class ExcelMatelasImporter:
             except Exception as e:
                 logger.error(f"Erreur lors de l'écriture de {cell_address}: {e}")
         
+        # Détecter et écrire les types de sommiers mentionnés dans les descriptions de matelas
+        # Chercher dans les articles et la description du matelas
+        articles = config_json.get("articles", [])
+        if isinstance(articles, list):
+            for article in articles:
+                if isinstance(article, dict):
+                    description = article.get("description", "")
+                    if description:
+                        self.ecrire_type_sommier_matelas_excel(worksheet, description, left_col, right_col)
+        
+        # Chercher aussi dans la description du matelas lui-même
+        description_matelas = config_json.get("description", "") or config_json.get("article_description", "")
+        if description_matelas:
+            self.ecrire_type_sommier_matelas_excel(worksheet, description_matelas, left_col, right_col)
+        
         # Applique le centrage global si le mode est activé
         if self.alignment_mode == "global":
             self.center_block_cells(worksheet, left_col, right_col)
             logger.info(f"Centrage global appliqué au bloc {left_col}-{right_col}")
         
+        # Décolorer D19 (rose du template) si le matelas n'est pas Luxe 3D
+        cell_c19 = worksheet[f"{left_col}19"]
+        c19_value = str(cell_c19.value).strip() if cell_c19.value else ""
+        if c19_value != "X":
+            cell_d19 = worksheet[f"{right_col}19"]
+            cell_d19.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+            logger.info(f"D19 décoloré (pas Luxe 3D) pour bloc {left_col}-{right_col}")
+
         # Applique la logique conditionnelle Mr&MME
         self.apply_mr_mme_conditional_logic(worksheet, config_json, left_col, right_col)
     
@@ -910,7 +1033,8 @@ class ExcelMatelasImporter:
         workbook.save(filepath)
         logger.info(f"Fichier sauvegardé: {filepath}")
         
-        return filepath
+        # Retourner le chemin absolu pour éviter les problèmes de résolution
+        return os.path.abspath(filepath)
     
     def import_configurations(self, configurations: List[Dict], semaine: str, id_fichier: str) -> List[str]:
         """
