@@ -3,6 +3,42 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+NAME_STOPWORDS = {"MR", "MME", "ME", "ET", "M", "MRS", "MONSIEUR", "MADAME"}
+
+
+def normaliser_nom_client(nom_complet: str) -> str:
+    """
+    Normalise le nom client : supprime civilité/prénom, ne garde que le nom de famille.
+
+    Ex: "Mr et Mme Jean BOUCHER" → "BOUCHER"
+        "Mme LEFEUVRE" → "LEFEUVRE"
+        "Mr DEVYNCK" → "DEVYNCK"
+    """
+    if not nom_complet:
+        return nom_complet
+
+    cleaned = nom_complet
+    # Supprimer les civilités composées
+    for prefix in ["Mr et Mme", "Mr et Me", "M. et Mme", "Monsieur et Madame"]:
+        cleaned = re.sub(re.escape(prefix), "", cleaned, flags=re.IGNORECASE)
+    # Supprimer les civilités simples
+    for prefix in ["Mme", "Mr", "Me", "M.", "Monsieur", "Madame"]:
+        cleaned = re.sub(r'\b' + re.escape(prefix) + r'\b', "", cleaned, flags=re.IGNORECASE)
+
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return nom_complet.strip().upper()
+
+    # Split sur espaces/slash/& et prendre le dernier mot significatif (= nom de famille)
+    parts = [word for word in re.split(r"[\s/&]+", cleaned) if word]
+    for part in reversed(parts):
+        candidate = part.strip().upper()
+        if candidate and candidate not in NAME_STOPWORDS and len(candidate) > 1:
+            return candidate
+
+    return cleaned.strip().upper()
+
+
 def extraire_titre_depuis_produits(articles_llm: list) -> str:
     """
     Extrait le titre (Mr ou Mme) depuis les descriptions des produits (matelas/sommiers)
@@ -79,10 +115,10 @@ def extraire_donnees_client(llm_data: dict, raw_text: str = None) -> dict:
         if isinstance(llm_data, dict) and "client" in llm_data:
             client_raw = llm_data["client"]
             if isinstance(client_raw, dict):
-                # Extraction du nom
+                # Extraction du nom : ne garder que le nom de famille
                 if "nom" in client_raw and client_raw["nom"]:
                     nom_complet = client_raw["nom"].strip()
-                    client_data["nom"] = nom_complet
+                    client_data["nom"] = normaliser_nom_client(nom_complet)
                 
                 # Extraction de l'adresse
                 if "adresse" in client_raw and client_raw["adresse"]:
